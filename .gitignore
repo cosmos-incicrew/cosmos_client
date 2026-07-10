@@ -1,0 +1,25 @@
+# Flutter/Dart
+.dart_tool/
+.packages
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+# pubspec.lock 은 앱 레포에서는 커밋합니다 (팀 간 의존성 버전 고정).
+
+# 로컬 전용 (커밋 금지 — 각자 PC의 SDK 경로 등)
+android/local.properties
+ios/Flutter/Generated.xcconfig
+ios/Flutter/flutter_export_environment.sh
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# 민감 정보 (dart-define / env)
+*.env
+env.local.dart
+
+# OS
+.DS_Store
+Thumbs.db
