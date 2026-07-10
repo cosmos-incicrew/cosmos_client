@@ -1,77 +1,65 @@
-/// 화장품 제품 모델.
+/// 화장품 제품 모델. 서버 RAG 데이터 설계(product + product_ingredients)를 반영한다.
 ///
-/// 지금은 목업/샘플용 최소 필드만 정의합니다.
-/// 실제 API 스키마(BE 담당)가 확정되면 fromJson/toJson 을 맞춰주세요.
+/// TODO: 실제 필드는 API 명세서 확정 후 맞춘다. 지금은 목업/샘플 기준.
 class Product {
   const Product({
     required this.id,
     required this.name,
-    required this.brand,
+    this.brand,
     this.imageUrl,
-    this.category,
-    this.ingredients = const [],
-    this.safetyScore,
+    this.mainCategory,
+    this.subCategory,
+    this.productUrl,
+    this.ingredientIds = const [],
   });
 
-  final String id;
-  final String name;
-  final String brand;
+  final int id; // product_id
+  final String name; // product_name
+  final String? brand;
   final String? imageUrl;
-  final String? category;
+  final String? mainCategory; // 예: "스킨케어"
+  final String? subCategory; // 예: "세럼/앰플"
+  final String? productUrl;
 
-  /// 성분명 리스트 (cosmos 성분 기반 추천의 핵심 데이터)
-  final List<String> ingredients;
-
-  /// 0~100 성분 안전도 점수 (샘플)
-  final int? safetyScore;
+  /// 이 제품에 포함된 성분들의 ingredient_id (product_ingredients N:M 매핑).
+  final List<int> ingredientIds;
 
   factory Product.fromJson(Map<String, dynamic> json) {
     return Product(
-      id: json['id'] as String,
-      name: json['name'] as String,
-      brand: (json['brand'] ?? '') as String,
+      id: json['product_id'] as int,
+      name: json['product_name'] as String,
+      brand: json['brand'] as String?,
       imageUrl: json['image_url'] as String?,
-      category: json['category'] as String?,
-      ingredients: (json['ingredients'] as List?)?.cast<String>() ?? const [],
-      safetyScore: json['safety_score'] as int?,
+      mainCategory: json['main_category'] as String?,
+      subCategory: json['sub_category'] as String?,
+      productUrl: json['product_url'] as String?,
+      ingredientIds:
+          (json['ingredient_ids'] as List?)?.cast<int>() ?? const [],
     );
   }
-
-  Map<String, dynamic> toJson() => {
-        'id': id,
-        'name': name,
-        'brand': brand,
-        'image_url': imageUrl,
-        'category': category,
-        'ingredients': ingredients,
-        'safety_score': safetyScore,
-      };
 }
 
-/// 개발용 샘플 데이터. API 연동 전 UI 확인에 사용합니다.
+/// 개발용 샘플 데이터. API 연동 전 UI 확인에 사용 (피그마 예시 제품 반영).
 const sampleProducts = <Product>[
   Product(
-    id: '1',
-    name: '수분 진정 토너',
-    brand: 'cosmos',
-    category: '토너',
-    ingredients: ['정제수', '나이아신아마이드', '판테놀', '히알루론산'],
-    safetyScore: 92,
+    id: 1,
+    name: '아토베리어365 크림',
+    brand: '에스트라',
+    mainCategory: '스킨케어',
+    subCategory: '크림',
   ),
   Product(
-    id: '2',
-    name: '데일리 선크림 SPF50+',
-    brand: 'cosmos',
-    category: '선케어',
-    ingredients: ['징크옥사이드', '나이아신아마이드', '병풀추출물'],
-    safetyScore: 85,
+    id: 2,
+    name: '아토베리어365 하이드로 크림',
+    brand: '에스트라',
+    mainCategory: '스킨케어',
+    subCategory: '크림',
   ),
   Product(
-    id: '3',
-    name: '레티놀 나이트 세럼',
-    brand: 'cosmos',
-    category: '세럼',
-    ingredients: ['레티놀', '토코페롤', '스쿠알란'],
-    safetyScore: 74,
+    id: 3,
+    name: '아토베리어365 캡슐토너',
+    brand: '에스트라',
+    mainCategory: '스킨케어',
+    subCategory: '토너',
   ),
 ];

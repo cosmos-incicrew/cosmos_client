@@ -26,6 +26,11 @@ class AppShell extends StatelessWidget {
             label: '홈',
           ),
           NavigationDestination(
+            icon: Icon(Icons.shelves),
+            selectedIcon: Icon(Icons.shelves),
+            label: '화장대',
+          ),
+          NavigationDestination(
             icon: Icon(Icons.person_outline),
             selectedIcon: Icon(Icons.person),
             label: '마이',

@@ -79,11 +79,11 @@ class LoginScreen extends ConsumerWidget {
               ),
 
               const SizedBox(height: 20),
-              // 게스트 로그인 (실제 동작)
+              // 로그인 없이 시작하기 (게스트 — 실제 동작)
               TextButton(
                 onPressed: () =>
                     ref.read(authControllerProvider.notifier).signInAsGuest(),
-                child: const Text('게스트로 둘러보기',
+                child: const Text('로그인 없이 시작하기',
                     style: TextStyle(color: AppColors.textSecondary)),
               ),
               const Spacer(flex: 1),

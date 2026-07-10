@@ -4,7 +4,8 @@ publish_to: "none"
 version: 0.1.0+1
 
 environment:
-  sdk: ">=3.4.0 <4.0.0"
+  # withValues(alpha:) 등 최신 API 사용 → Flutter 3.27+ / Dart 3.6+ 필요.
+  sdk: ">=3.6.0 <4.0.0"
 
 dependencies:
   flutter:
@@ -53,10 +54,22 @@ flutter:
   assets:
     - assets/images/
     - assets/icons/
-  # 커스텀 폰트를 쓸 경우 여기에 추가
-  # fonts:
-  #   - family: Pretendard
-  #     fonts:
-  #       - asset: assets/fonts/Pretendard-Regular.otf
-  #       - asset: assets/fonts/Pretendard-Bold.otf
-  #         weight: 700
+  # 폰트: 본문 Pretendard + 포인트 갈무리 9/11.
+  # 파일을 assets/fonts/ 에 넣기 전엔 flutter가 경고만 내고 시스템 폰트로 대체된다.
+  # 파일 넣은 뒤 아래 경로가 실제 파일명과 맞는지만 확인. 자세한 건 assets/fonts/README.md.
+  fonts:
+    - family: Pretendard
+      fonts:
+        - asset: assets/fonts/Pretendard-Regular.ttf
+        - asset: assets/fonts/Pretendard-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Pretendard-Bold.ttf
+          weight: 700
+    - family: Galmuri9
+      fonts:
+        - asset: assets/fonts/Galmuri9.ttf
+    - family: Galmuri11
+      fonts:
+        - asset: assets/fonts/Galmuri11.ttf
+        - asset: assets/fonts/Galmuri11-Bold.ttf
+          weight: 700

@@ -2,25 +2,27 @@ import 'package:flutter/material.dart';
 
 /// cosmos 브랜드 색상 팔레트.
 ///
-/// 화장품/스킨케어 앱 톤에 맞춘 부드러운 그린 계열 시드 컬러입니다.
-/// 실제 브랜드 컬러가 확정되면 [seed] 값만 바꾸면 전체 톤이 따라옵니다.
+/// 피그마 "Color Chart"(Page 2, node 87:2027)에서 추출한 실제 값이다.
+/// 디자인 확정 시 아래 값만 교체하면 전체 톤이 따라온다.
 class AppColors {
   const AppColors._();
 
-  /// Material 3 ColorScheme 생성을 위한 시드 컬러.
-  static const Color seed = Color(0xFF5B8C5A); // sage green
+  /// Material 3 ColorScheme 생성을 위한 시드 컬러. (메인 블루)
+  static const Color seed = Color(0xFF7490D2);
 
-  // 브랜드 포인트 컬러 (테마 밖에서 직접 참조할 때 사용)
-  static const Color primary = Color(0xFF5B8C5A);
-  static const Color secondary = Color(0xFFE8B4A0); // soft coral
-  static const Color background = Color(0xFFFAF9F6); // warm white
+  // 브랜드 컬러
+  static const Color primary = Color(0xFF7490D2); // 메인 블루
+  static const Color primaryLight = Color(0xFFC0D7F8); // 연블루 (배경·칩)
+  static const Color accent = Color(0xFFFCAB43); // 오렌지 포인트 (강조·CTA)
+  static const Color background = Color(0xFFFAFAFA); // 배경 화이트
   static const Color surface = Color(0xFFFFFFFF);
 
-  // 성분 안전도 배지 등에 쓰는 시맨틱 컬러
+  // 성분 안전도 배지 등 시맨틱 컬러
   static const Color safe = Color(0xFF4CAF7D);
-  static const Color caution = Color(0xFFE6B54A);
+  static const Color caution = Color(0xFFFCAB43); // 포인트 오렌지와 통일
   static const Color danger = Color(0xFFE07A5F);
 
-  static const Color textPrimary = Color(0xFF2B2B2B);
-  static const Color textSecondary = Color(0xFF7A7A7A);
+  static const Color textPrimary = Color(0xFF3B3939); // 차콜
+  static const Color textSecondary = Color(0xFF8A8A8A); // 보조 텍스트 (가독성 확보)
+  static const Color outline = Color(0xFFCAC4D0); // 라벤더 그레이 (보더·구분선)
 }

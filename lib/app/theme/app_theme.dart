@@ -25,7 +25,7 @@ class AppTheme {
       colorScheme: colorScheme,
       scaffoldBackgroundColor:
           isLight ? AppColors.background : colorScheme.surface,
-      // fontFamily: 'Pretendard', // 폰트 추가 시 활성화
+      fontFamily: 'Pretendard', // 본문 기본 폰트 (파일 없으면 시스템 폰트로 대체됨)
       appBarTheme: AppBarTheme(
         centerTitle: true,
         elevation: 0,
