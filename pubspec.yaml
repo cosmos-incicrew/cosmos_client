@@ -52,8 +52,15 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
-    - assets/images/
-    - assets/icons/
+    # 이미지 (PNG) — 용도별 분리. 폴더 구조는 assets/README.md 참고.
+    - assets/images/logo/
+    - assets/images/onboarding/
+    - assets/images/bsti/
+    - assets/images/common/
+    # 아이콘 (PNG)
+    - assets/icons/social/
+    - assets/icons/nav/
+    - assets/icons/common/
   # 폰트: 본문 Pretendard + 포인트 갈무리 9/11.
   # 파일을 assets/fonts/ 에 넣기 전엔 flutter가 경고만 내고 시스템 폰트로 대체된다.
   # 파일 넣은 뒤 아래 경로가 실제 파일명과 맞는지만 확인. 자세한 건 assets/fonts/README.md.
