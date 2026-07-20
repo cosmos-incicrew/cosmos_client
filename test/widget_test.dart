@@ -1,3 +1,4 @@
+import 'package:cosmos_app/features/bsti/data/models/bsti_result.dart';
 import 'package:cosmos_app/features/ingredient/data/models/ingredient.dart';
 import 'package:cosmos_app/features/product/data/models/product.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -17,6 +18,10 @@ void main() {
       expect(p.ingredientIds, [1024, 302]);
     });
 
+    test('샘플 제품이 존재한다', () {
+      expect(sampleProducts, isNotEmpty);
+      expect(sampleProducts.first.brand, '에스트라');
+    });
   });
 
   group('Ingredient', () {
@@ -41,6 +46,39 @@ void main() {
     test('name_kor가 없으면 displayName은 영문으로 폴백', () {
       const ing = Ingredient(id: 1, nameKor: null, nameEng: 'RETINOL');
       expect(ing.displayName, 'RETINOL');
+    });
+  });
+
+  group('BSTI', () {
+    test('축 비율은 왼쪽+오른쪽이 100이다', () {
+      const axis = BstiAxis(
+        leftCode: 'O',
+        leftLabel: '지성',
+        leftPercent: 75,
+        rightCode: 'D',
+        rightLabel: '건성',
+      );
+      expect(axis.rightPercent, 25);
+    });
+
+    test('결과 fromJson 파싱', () {
+      final result = BstiResult.fromJson({
+        'type_code': 'OSPW',
+        'type_name': '진정이 먼저인 풀코스 케어 수련생',
+        'axes': [
+          {
+            'left_code': 'O',
+            'left_label': '지성',
+            'left_percent': 75,
+            'right_code': 'D',
+            'right_label': '건성',
+          },
+        ],
+        'recommended_ingredients': ['나이아신아마이드'],
+      });
+      expect(result.typeCode, 'OSPW');
+      expect(result.axes.first.rightPercent, 25);
+      expect(result.recommendedIngredients, ['나이아신아마이드']);
     });
   });
 }

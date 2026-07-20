@@ -33,64 +33,35 @@ lib/
 │  ├─ network/             # Supabase / Dio 클라이언트
 │  ├─ storage/             # Hive + secure storage
 │  └─ widgets/             # 공통 위젯 (로딩·에러·빈 상태)
-│  └─ mock/                # ⚠️ 목데이터 (백엔드 연동 시 폴더째 삭제)
-└─ features/               # 기능별 모듈
-   ├─ splash/              # 앱 시작 화면 (GIF 로고 + START)
-   ├─ onboarding/          # 온보딩 슬라이드
+└─ features/               # 기능별 모듈 (data / presentation)
    ├─ auth/                # 로그인 (게스트 동작, 소셜 UI 뼈대)
-   ├─ home/                # 홈 (검색바 + 메뉴 그리드)
-   ├─ bsti/                # 피부 MBTI 검사 ★ 평탄 구조 (아래 설명)
-   ├─ my_shelf/            # 제품·성분 검색 → 상세 (내 화장대)
-   ├─ product/             # 제품 모델
-   ├─ ingredient/          # 성분 모델
-   ├─ recommendation/      # 맞춤 추천
+   ├─ home/                # 홈 (추천 리스트)
+   ├─ search/              # 제품명·성분명 검색
+   ├─ product/             # 제품 모델·카드·상세
    └─ profile/             # 마이페이지
 ```
 
-**구조 규칙 — feature 폴더는 두 가지 패턴이 섞여 있습니다.**
-
-| 패턴 | 해당 feature | 설명 |
-|---|---|---|
-| 계층형 (기본) | bsti 외 전부 | `data/`(모델·저장소) + `presentation/`(화면·위젯) |
-| 평탄형 | **bsti** | 폴더 없이 파일을 한 곳에. 데이터·엔진·화면·테스트가 모두 `lib/features/bsti/` 바로 아래 |
-
-> BSTI는 관련 파일을 한 폴더에서 보려고 일부러 평탄하게 뒀습니다. 다른 feature는 계층형을 따르세요.
-
-## 테스트
-
-```bash
-flutter test        # 전체 (39개) — 아래 이유로 이 한 줄이면 충분
-```
-
-**주의**: 테스트가 두 곳에 있습니다.
-
-| 위치 | 파일 | 비고 |
-|---|---|---|
-| `test/` | `widget_test.dart` | 모델 단위 테스트 |
-| `test/` | `all_lib_tests_test.dart` | **진입점** — lib 안 테스트를 모아 실행 |
-| `lib/features/bsti/` | `bsti_*_test.dart` (4개) | 소스 옆에 둔 테스트 |
-| `lib/features/my_shelf/.../` | `shelf_search_test.dart` | 소스 옆에 둔 테스트 |
-
-`flutter test`는 `test/` 폴더만 자동 실행하므로, lib 안 테스트는 **진입점
-(`all_lib_tests_test.dart`)이 불러와야** 함께 돌아갑니다.
-**lib에 테스트를 추가하면 그 진입점에도 꼭 등록하세요.** 안 하면 조용히 누락됩니다.
+각 feature는 `data`(모델·저장소)와 `presentation`(화면·위젯·프로바이더)로
+나뉩니다. 화면이 늘어나면 이 패턴을 그대로 복제하면 됩니다.
 
 ## 실행 방법
 
+> ⚠️ 이 PC에는 아직 Flutter SDK가 설치되어 있지 않습니다.
+> [Flutter 설치](https://docs.flutter.dev/get-started/install/windows) 후 진행하세요.
+
 ```bash
+# 1) 프로젝트 폴더로 이동
 cd cosmos_app
+
+# 2) 이 스캐폴드에는 flutter create 의 플랫폼 폴더(android/ios/web)가
+#    아직 없습니다. 아래로 현재 폴더에 플랫폼 폴더를 생성합니다.
+flutter create .
+
+# 3) 의존성 설치
 flutter pub get
 
-# 실행 (Supabase 없이도 게스트 로그인으로 동작)
+# 4) 실행 (Supabase 없이도 게스트 로그인으로 실행됨)
 flutter run
-
-# 웹으로 띄우기 (폰 프레임으로 보임)
-flutter run -d chrome
-
-# 같은 네트워크의 다른 기기에서도 열려면
-flutter run -d web-server --web-hostname 0.0.0.0 --web-port 8123
-#   → 이 PC: http://localhost:8123 / 다른 기기: http://<이 PC IP>:8123
-#   (방화벽에서 해당 포트를 열어야 할 수 있음)
 
 # Supabase / API 연동 시 (값 채운 뒤):
 flutter run \
@@ -101,22 +72,11 @@ flutter run \
 
 ## 현재 동작 범위
 
-- ✅ 스플래시(GIF 로고) → 온보딩 → 로그인 시트(모달) → 홈
-- ✅ **BSTI 검사 전 과정** — 20문항 설문 → 채점 → 결과(유형별 고양이·성분·자차).
-  백엔드 없이 앱이 자체 채점. 자세한 설계는 [docs/bsti-spec.md](docs/bsti-spec.md)
-- ✅ 제품·성분 검색 → 상세 (권장 피부타입을 BSTI 데이터로 실제 매칭)
+- ✅ 게스트 로그인 → 홈 진입 → 검색 → 제품 상세 → 마이페이지 → 로그아웃
+- ✅ 하단 탭(홈/마이), 성분 안전도 배지, 목업 데이터 기반 화면
 - 🔲 소셜 로그인: 버튼 UI만 배치 (탭 시 "준비 중" 안내). SDK 연동 필요
-- 🔲 검색·추천: **목데이터** 로컬 필터. 실제 API 연동 필요
-- 🔲 제품 이미지: 목데이터용. 실서비스는 제휴/직접 확보 이미지 필요
-
-## 목데이터
-
-개발용 가짜 데이터는 **`lib/core/mock/`** 한 곳에만 있습니다.
-
-백엔드 연동 시:
-1. `lib/core/mock/` 폴더 삭제
-2. `mockProducts` / `mockIngredients` 참조처를 실제 API로 교체
-3. `flutter analyze`로 남은 참조 확인
+- 🔲 검색: 샘플 데이터 로컬 필터. 실제 검색 API(BE 담당) 연동 필요
+- 🔲 Supabase 스키마 / 실제 제품·성분 데이터 연동
 
 ## 다음 작업 (TODO)
 
@@ -124,5 +84,5 @@ flutter run \
 
 1. `lib/core/config/env.dart` — Supabase URL/Key, API 주소 채우기
 2. `lib/features/auth/data/auth_repository.dart` — 카카오 등 소셜 SDK 연동
-3. `lib/features/my_shelf/...` — 목데이터 → 실제 검색 API 호출
+3. `lib/features/search/...` — dio 로 검색 API 호출
 4. `lib/features/product/data/models/product.dart` — 실제 API 스키마 반영

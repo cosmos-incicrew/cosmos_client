@@ -16,7 +16,6 @@ class Ingredient {
     this.sourceRef,
     this.restriction,
     this.synonyms = const [],
-    this.bstiIngredientId,
   });
 
   final int id; // ingredient_id — 모든 조인의 기준 키
@@ -35,10 +34,6 @@ class Ingredient {
 
   final List<String> synonyms;
 
-  /// BSTI 성분 사전(kBstiIngredients)의 문자열 id (예: 'niac'). 없으면 null.
-  /// 이 값으로 "어느 BSTI 유형이 이 성분을 권장하는지" 실제 매칭한다.
-  final String? bstiIngredientId;
-
   factory Ingredient.fromJson(Map<String, dynamic> json) {
     return Ingredient(
       id: json['ingredient_id'] as int,
@@ -54,15 +49,12 @@ class Ingredient {
           : IngredientRestriction.fromJson(
               json['restrictions'] as Map<String, dynamic>),
       synonyms: (json['synonyms'] as List?)?.cast<String>() ?? const [],
-      bstiIngredientId: json['bsti_ingredient_id'] as String?,
     );
   }
 
   /// 화면 표시용 대표 이름 (한글 우선, 없으면 영문).
   String get displayName => nameKor ?? nameEng;
 }
-
-// 성분 데이터는 IngredientRepository 에서 가져온다 (ingredient_repository.dart).
 
 /// 성분 제한/주의사항. safetyNote가 null이면 "안전성 확인 불가".
 class IngredientRestriction {

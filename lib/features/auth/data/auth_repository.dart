@@ -22,14 +22,13 @@ class AuthRepository {
     );
   }
 
-  /// 카카오 로그인.
-  ///
+  /// 카카오 로그인. (7/7 확정 — 공식 SDK)
   /// TODO: kakao_flutter_sdk_user 연동
   ///   1) main 에서 KakaoSdk.init(nativeAppKey: ...)
   ///   2) UserApi.instance.loginWithKakaoTalk() / loginWithKakaoAccount()
   ///   3) 받은 토큰으로 Supabase signInWithIdToken 연동
   Future<AuthState> signInWithKakao() async {
-    throw UnimplementedError('카카오 로그인 미구현');
+    throw UnimplementedError('카카오 로그인은 SDK 연동 후 구현 예정');
   }
 
   /// 네이버 로그인 (커뮤니티 SDK — 초기 PoC)

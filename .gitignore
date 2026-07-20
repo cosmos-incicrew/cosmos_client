@@ -23,6 +23,3 @@ env.local.dart
 # OS
 .DS_Store
 Thumbs.db
-
-# 로컬 도구 설정 (개인 환경)
-.claude/

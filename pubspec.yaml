@@ -52,21 +52,8 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
-    # 이미지 (PNG) — 용도별 분리. 폴더 구조는 assets/README.md 참고.
-    - assets/images/logo/
-    - assets/images/onboarding/
-    - assets/images/profile/    # 성별 선택 고양이 (female.png / male.png)
-    - assets/images/bsti/
-    - assets/images/bsti/cat/      # 유형별 고양이 캐릭터 (파일명: OSPW.png … DRNT.png)
-    - assets/images/bsti/label/    # 유형별 영문 코드 라벨 (파일명: OSPW.png … DRNT.png)
-    - assets/images/bsti/icon/     # 권장/주의 성분 아이콘 (recommend.png / avoid.png)
-    - assets/images/home/
-    - assets/images/product/   # 제품 이미지 (목데이터용, 파일명: p1.png … p6.png)
-    - assets/images/common/
-    # 아이콘 (PNG)
-    - assets/icons/social/
-    - assets/icons/nav/
-    - assets/icons/common/
+    - assets/images/
+    - assets/icons/
   # 폰트: 본문 Pretendard + 포인트 갈무리 9/11.
   # 파일을 assets/fonts/ 에 넣기 전엔 flutter가 경고만 내고 시스템 폰트로 대체된다.
   # 파일 넣은 뒤 아래 경로가 실제 파일명과 맞는지만 확인. 자세한 건 assets/fonts/README.md.
