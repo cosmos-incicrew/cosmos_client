@@ -1,94 +1,110 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../../../app/theme/app_assets.dart';
 import '../../../../app/theme/app_colors.dart';
+import '../../../../app/theme/app_text_styles.dart';
 import '../providers/auth_provider.dart';
 
-/// 로그인 화면.
+/// 로그인 시트 — 직전 화면(온보딩) 위에 어둠과 함께 올라오는 모달 바텀시트.
 ///
-/// 게스트 로그인만 실제 동작하고, 소셜 로그인 버튼은 UI 뼈대만 배치했습니다.
-/// (탭하면 "준비 중" 스낵바 표시)
-class LoginScreen extends ConsumerWidget {
-  const LoginScreen({super.key});
+/// [LoginSheet.show]로 띄운다. 별도 페이지가 아니라 뒤 화면이 비쳐 보이는 모달.
+/// 구성: 소셜 원형 아이콘 3개(카카오·네이버·구글) → "또는" 구분선 →
+/// "로그인 없이 시작하기" 회색 텍스트. 색/폰트는 앱 컨셉, 게스트 플로우 유지.
+class LoginSheet extends ConsumerWidget {
+  const LoginSheet({super.key});
+
+  /// 현재 화면 위에 로그인 시트를 띄운다. (배경 어두워짐 + 하단에서 슬라이드업)
+  static Future<void> show(BuildContext context) {
+    return showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.5),
+      builder: (_) => const LoginSheet(),
+    );
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return Scaffold(
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          child: Column(
-            children: [
-              const Spacer(flex: 2),
-              // 로고 영역
-              Container(
-                width: 96,
-                height: 96,
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(28),
+    return Container(
+      width: double.infinity,
+      decoration: const BoxDecoration(
+        color: AppColors.primaryLight,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      padding: const EdgeInsets.fromLTRB(24, 16, 24, 20),
+      child: SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // 시트 핸들.
+            Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.only(bottom: 20),
+              decoration: BoxDecoration(
+                color: AppColors.outline,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            // 소셜 로그인 원형 아이콘 3개.
+            // 로고 PNG가 이미 브랜드 색 원을 포함하므로 배경 원을 겹치지 않는다.
+            // (구글만 원 배경이 없어 흰 원을 깔아준다)
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                _SocialCircle(
+                  logo: AppAssets.kakao,
+                  fallbackIcon: Icons.chat_bubble,
+                  fallbackBackground: const Color(0xFFFEE500),
+                  fallbackForeground: const Color(0xFF3C1E1E),
+                  // ⚠️ 목 로그인 — SDK 없이 무조건 성공한다.
+                  onTap: () => _kakaoLogin(context, ref),
                 ),
-                child: const Icon(Icons.spa_outlined,
-                    size: 48, color: AppColors.primary),
-              ),
-              const SizedBox(height: 24),
-              Text('cosmos',
-                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.primary,
-                      )),
-              const SizedBox(height: 8),
-              Text('성분으로 찾는 나만의 화장품',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: AppColors.textSecondary,
-                      )),
-              const Spacer(flex: 3),
-
-              // 소셜 로그인 버튼들 (UI 뼈대)
-              _SocialButton(
-                label: '카카오로 시작하기',
-                icon: Icons.chat_bubble,
-                background: const Color(0xFFFEE500),
-                foreground: const Color(0xFF3C1E1E),
-                onTap: () => _notReady(context),
-              ),
-              const SizedBox(height: 12),
-              _SocialButton(
-                label: '네이버로 시작하기',
-                icon: Icons.check_circle,
-                background: const Color(0xFF03C75A),
-                foreground: Colors.white,
-                onTap: () => _notReady(context),
-              ),
-              const SizedBox(height: 12),
-              _SocialButton(
-                label: 'Google로 시작하기',
-                icon: Icons.g_mobiledata,
-                background: Colors.white,
-                foreground: Colors.black87,
-                bordered: true,
-                onTap: () => _notReady(context),
-              ),
-              const SizedBox(height: 12),
-              _SocialButton(
-                label: 'Apple로 시작하기',
-                icon: Icons.apple,
-                background: Colors.black,
-                foreground: Colors.white,
-                onTap: () => _notReady(context),
-              ),
-
-              const SizedBox(height: 20),
-              // 로그인 없이 시작하기 (게스트 — 실제 동작)
-              TextButton(
-                onPressed: () =>
-                    ref.read(authControllerProvider.notifier).signInAsGuest(),
-                child: const Text('로그인 없이 시작하기',
-                    style: TextStyle(color: AppColors.textSecondary)),
-              ),
-              const Spacer(flex: 1),
-            ],
-          ),
+                const SizedBox(width: 24),
+                _SocialCircle(
+                  logo: AppAssets.naver,
+                  fallbackIcon: Icons.check_circle,
+                  fallbackBackground: const Color(0xFF03C75A),
+                  fallbackForeground: Colors.white,
+                  onTap: () => _notReady(context),
+                ),
+                const SizedBox(width: 24),
+                _SocialCircle(
+                  logo: AppAssets.google,
+                  fallbackIcon: Icons.g_mobiledata,
+                  fallbackBackground: Colors.white,
+                  fallbackForeground: Colors.black87,
+                  // 구글 로고는 투명 배경 → 흰 원을 깔아 통일.
+                  padBackground: Colors.white,
+                  onTap: () => _notReady(context),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+            // "또는" 구분선.
+            const Row(
+              children: [
+                Expanded(child: Divider(color: AppColors.outline)),
+                Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 12),
+                  child: Text('또는', style: AppTextStyles.caption),
+                ),
+                Expanded(child: Divider(color: AppColors.outline)),
+              ],
+            ),
+            const SizedBox(height: 16),
+            // 로그인 없이 시작하기 (게스트) → 팝업.
+            // 소셜 로그인이 주(主)이므로 강조하지 않고 회색 텍스트만.
+            TextButton(
+              onPressed: () => _guestFlow(context, ref),
+              child: const Text('로그인 없이 시작하기',
+                  style: TextStyle(color: AppColors.textSecondary)),
+            ),
+          ],
         ),
       ),
     );
@@ -101,44 +117,136 @@ class LoginScreen extends ConsumerWidget {
         const SnackBar(content: Text('소셜 로그인은 준비 중입니다 (SDK 연동 예정)')),
       );
   }
+
+  /// 카카오 로그인.
+  /// 로그인 후 온보딩을 마쳤으면 홈, 아니면 프로필 등록으로 보낸다.
+  ///
+  /// SDK 연동 전에는 [UnimplementedError] 가 나므로, 크래시 대신
+  /// 다른 소셜 버튼과 같은 안내를 띄운다.
+  Future<void> _kakaoLogin(BuildContext context, WidgetRef ref) async {
+    final ctrl = ref.read(authControllerProvider.notifier);
+    try {
+      await ctrl.signInWithKakao();
+    } on UnimplementedError {
+      if (context.mounted) _notReady(context);
+      return;
+    }
+    if (!context.mounted) return;
+
+    // 로그인 시트를 닫고 다음 단계로.
+    Navigator.of(context).pop();
+    if (!context.mounted) return;
+
+    final auth = ref.read(authControllerProvider);
+    if (auth.onboarded) {
+      context.go('/home');
+    } else {
+      context.push('/onboarding/profile');
+    }
+  }
+
+  /// 게스트 팝업: "비회원은 맞춤 추천 불가. 계속?"
+  /// - 홈으로: 게스트로 홈 진입 (온보딩 건너뜀)
+  /// - 회원가입 계속: 프로필 등록으로
+  Future<void> _guestFlow(BuildContext context, WidgetRef ref) async {
+    final choice = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        content: const Text(
+          '비회원으로 이용시,\n맞춤형 제품추천이 불가합니다.\n\n회원가입을 계속 진행할까요?',
+          textAlign: TextAlign.center,
+        ),
+        actionsAlignment: MainAxisAlignment.spaceEvenly,
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, 'home'),
+            child: const Text('홈으로',
+                style: TextStyle(color: AppColors.textSecondary)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, 'signup'),
+            child: const Text('계속하기'),
+          ),
+        ],
+      ),
+    );
+    if (!context.mounted) return;
+
+    if (choice == 'home') {
+      final ctrl = ref.read(authControllerProvider.notifier);
+      await ctrl.signInAsGuest();
+      ctrl.completeOnboarding();
+      if (context.mounted) context.go('/home');
+    } else if (choice == 'signup') {
+      // 로그인 시트를 닫고 프로필 등록으로.
+      Navigator.of(context).pop();
+      context.push('/onboarding/profile');
+    }
+  }
 }
 
-class _SocialButton extends StatelessWidget {
-  const _SocialButton({
-    required this.label,
-    required this.icon,
-    required this.background,
-    required this.foreground,
+/// 소셜 로그인 원형 아이콘.
+///
+/// 로고 PNG가 이미 브랜드 색 원을 포함하므로 로고를 원형으로 꽉 채워 보여준다.
+/// - [padBackground]: 로고 배경이 투명한 경우(구글) 뒤에 깔 원 색.
+/// - 로고 로드 실패 시 [fallbackBackground] 원 + [fallbackIcon]으로 대체.
+class _SocialCircle extends StatelessWidget {
+  const _SocialCircle({
+    required this.logo,
+    required this.fallbackIcon,
+    required this.fallbackBackground,
+    required this.fallbackForeground,
     required this.onTap,
-    this.bordered = false,
+    this.padBackground,
   });
 
-  final String label;
-  final IconData icon;
-  final Color background;
-  final Color foreground;
+  static const double _size = 56;
+
+  final String? logo;
+  final IconData fallbackIcon;
+  final Color fallbackBackground;
+  final Color fallbackForeground;
+  final Color? padBackground;
   final VoidCallback onTap;
-  final bool bordered;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 52,
-      width: double.infinity,
-      child: FilledButton.icon(
-        onPressed: onTap,
-        icon: Icon(icon, color: foreground),
-        label: Text(label, style: TextStyle(color: foreground)),
-        style: FilledButton.styleFrom(
-          backgroundColor: background,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-            side: bordered
-                ? const BorderSide(color: Color(0xFFE0E0E0))
-                : BorderSide.none,
-          ),
+    final logoPath = logo;
+    // 투명 심볼 로고(구글 G)는 흰 원 + 안쪽 여백을 두고 작게.
+    // 원 배경이 포함된 로고(카카오/네이버)는 원을 꽉 채운다.
+    final isSymbolOnly = padBackground != null;
+    return InkWell(
+      onTap: onTap,
+      customBorder: const CircleBorder(),
+      child: ClipOval(
+        child: SizedBox(
+          width: _size,
+          height: _size,
+          child: logoPath == null
+              ? _fallback()
+              : ColoredBox(
+                  color: padBackground ?? Colors.transparent,
+                  child: Padding(
+                    // 심볼 로고만 여백을 줘서 원 안에 작게 앉힌다.
+                    padding: EdgeInsets.all(isSymbolOnly ? 14 : 0),
+                    child: Image.asset(
+                      logoPath,
+                      fit: isSymbolOnly ? BoxFit.contain : BoxFit.cover,
+                      errorBuilder: (_, __, ___) => _fallback(),
+                    ),
+                  ),
+                ),
         ),
       ),
+    );
+  }
+
+  Widget _fallback() {
+    return ColoredBox(
+      color: fallbackBackground,
+      child: Icon(fallbackIcon, color: fallbackForeground, size: 26),
     );
   }
 }

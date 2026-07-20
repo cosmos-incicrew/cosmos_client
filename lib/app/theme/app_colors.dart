@@ -12,6 +12,7 @@ class AppColors {
 
   // 브랜드 컬러
   static const Color primary = Color(0xFF7490D2); // 메인 블루
+  static const Color primaryDark = Color(0xFF112D55); // 딥 네이비 (헤드라인·로고 텍스트)
   static const Color primaryLight = Color(0xFFC0D7F8); // 연블루 (배경·칩)
   static const Color accent = Color(0xFFFCAB43); // 오렌지 포인트 (강조·CTA)
   static const Color background = Color(0xFFFAFAFA); // 배경 화이트
