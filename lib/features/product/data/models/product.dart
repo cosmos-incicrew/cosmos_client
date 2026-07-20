@@ -44,5 +44,4 @@ class Product {
   }
 }
 
-// 목(mock) 제품 데이터는 lib/core/mock/mock_data.dart 로 분리했다.
-// (백엔드 연동 시 그 폴더째 삭제)
+// 제품 데이터는 ProductRepository 에서 가져온다 (product_repository.dart).

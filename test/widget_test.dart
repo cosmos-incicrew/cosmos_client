@@ -1,4 +1,3 @@
-import 'package:cosmos_app/core/mock/mock_data.dart';
 import 'package:cosmos_app/features/ingredient/data/models/ingredient.dart';
 import 'package:cosmos_app/features/product/data/models/product.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -18,10 +17,6 @@ void main() {
       expect(p.ingredientIds, [1024, 302]);
     });
 
-    test('샘플 제품이 존재한다', () {
-      expect(mockProducts, isNotEmpty);
-      expect(mockProducts.first.brand, '에스트라');
-    });
   });
 
   group('Ingredient', () {

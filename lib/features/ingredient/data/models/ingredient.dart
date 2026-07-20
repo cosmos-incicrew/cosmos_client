@@ -62,8 +62,7 @@ class Ingredient {
   String get displayName => nameKor ?? nameEng;
 }
 
-// 목(mock) 성분 데이터는 lib/core/mock/mock_data.dart 로 분리했다.
-// (백엔드 연동 시 그 폴더째 삭제)
+// 성분 데이터는 IngredientRepository 에서 가져온다 (ingredient_repository.dart).
 
 /// 성분 제한/주의사항. safetyNote가 null이면 "안전성 확인 불가".
 class IngredientRestriction {

@@ -23,10 +23,7 @@ class ReportScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final report = ref.watch(shelfReportProvider);
-    final suggestions = ref.watch(shelfSuggestionsProvider);
-    final type =
-        report.typeCode == null ? null : kBstiSkinTypes[report.typeCode];
+    final reportAsync = ref.watch(shelfReportProvider);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -46,32 +43,54 @@ class ReportScreen extends ConsumerWidget {
         ],
       ),
       body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
-          children: [
-            _typeCard(type),
-            const SizedBox(height: 20),
-            _scoreCard(report),
-            const SizedBox(height: 28),
-            Text('지금 쓰는 화장품',
-                style: AppTextStyles.pointSm(color: AppColors.textPrimary)),
-            const SizedBox(height: 12),
-            if (report.isEmpty)
-              _emptyBox('화장대에 담은 제품이 없어요', '제품·성분을 검색해 담아보세요',
-                  onTap: () => context.push('/shelf/add'))
-            else
-              for (final m in report.matches) _matchTile(m),
-            // 부족한 성분 → 채워줄 제품 추천.
-            if (suggestions.isNotEmpty) ...[
-              const SizedBox(height: 32),
-              Text('이런 성분이 부족해요',
-                  style: AppTextStyles.pointSm(color: AppColors.textPrimary)),
-              const SizedBox(height: 12),
-              for (final s in suggestions) _suggestionCard(context, s),
-            ],
-          ],
+        child: reportAsync.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (_, __) => Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Text('보고서를 불러오지 못했어요',
+                  textAlign: TextAlign.center,
+                  style: AppTextStyles.body
+                      .copyWith(color: AppColors.textSecondary)),
+            ),
+          ),
+          data: (report) => _body(context, ref, report),
         ),
       ),
+    );
+  }
+
+  Widget _body(BuildContext context, WidgetRef ref, ShelfReport report) {
+    final type =
+        report.typeCode == null ? null : kBstiSkinTypes[report.typeCode];
+    // 추천은 보고서보다 늦게 와도 되므로, 없으면 그 구역만 비운다.
+    final suggestions =
+        ref.watch(shelfSuggestionsProvider).valueOrNull ?? const [];
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+      children: [
+        _typeCard(type),
+        const SizedBox(height: 20),
+        _scoreCard(report),
+        const SizedBox(height: 28),
+        Text('지금 쓰는 화장품',
+            style: AppTextStyles.pointSm(color: AppColors.textPrimary)),
+        const SizedBox(height: 12),
+        if (report.isEmpty)
+          _emptyBox('화장대에 담은 제품이 없어요', '제품·성분을 검색해 담아보세요',
+              onTap: () => context.push('/shelf/add'))
+        else
+          for (final m in report.matches) _matchTile(m),
+        // 부족한 성분 → 채워줄 제품 추천.
+        if (suggestions.isNotEmpty) ...[
+          const SizedBox(height: 32),
+          Text('이런 성분이 부족해요',
+              style: AppTextStyles.pointSm(color: AppColors.textPrimary)),
+          const SizedBox(height: 12),
+          for (final s in suggestions) _suggestionCard(context, s),
+        ],
+      ],
     );
   }
 

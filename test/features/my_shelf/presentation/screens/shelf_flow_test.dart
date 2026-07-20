@@ -10,13 +10,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../support/fake_repositories.dart';
+
 void main() {
   Future<ProviderContainer> pump(WidgetTester tester, String start) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
 
-    final container = ProviderContainer();
+    final container = ProviderContainer(overrides: fakeRepos);
     addTearDown(container.dispose);
 
     final router = GoRouter(
@@ -40,6 +42,8 @@ void main() {
 
     // 성분 검색 → 팝업 → 선호로 담기
     await tester.enterText(find.byType(TextField), '글리세린');
+    // 입력 디바운스(300ms)를 넘긴 뒤에야 검색이 돈다.
+    await tester.pump(const Duration(milliseconds: 400));
     await tester.pumpAndSettle();
 
     // + 버튼 (담기)
@@ -59,8 +63,8 @@ void main() {
   testWidgets('화장대 화면이 담은 성분을 보여준다', (tester) async {
     final c = await pump(tester, '/shelf');
 
-    // 처음엔 비어 있다.
-    expect(find.text('아직 담은 성분이 없어요'), findsOneWidget);
+    // 처음엔 비어 있다. (제품·성분 두 섹션 모두 같은 문구)
+    expect(find.text('아직 화장대가 비어있습니다'), findsNWidgets(2));
 
     // 담으면
     c.read(shelfPreferenceProvider.notifier).add(const ShelfEntry(

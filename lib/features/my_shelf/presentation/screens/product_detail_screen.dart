@@ -1,37 +1,28 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_text_styles.dart';
-import '../../../../core/mock/mock_data.dart';
 import '../../../../core/widgets/pixel_box.dart';
 import '../../../bsti/bsti.dart';
+import '../../../ingredient/data/ingredient_providers.dart';
 import '../../../ingredient/data/models/ingredient.dart';
 import '../../../product/data/models/product.dart';
 
 /// 제품 상세 화면 (검색 결과에서 진입).
 ///
 /// 시안 구성: 제품 이미지 → 제품명 → 대표성분(칩) → 권장 피부타입 요약 →
-/// 성분 자세히 보기. 성분은 [Product.ingredientIds]로 [mockIngredients]에서 조회.
-class ProductDetailScreen extends StatelessWidget {
+/// 성분 자세히 보기. 성분은 [Product.ingredientIds]로 저장소에서 조회한다.
+class ProductDetailScreen extends ConsumerWidget {
   const ProductDetailScreen({super.key, required this.product});
 
   final Product product;
 
-  List<Ingredient> get _ingredients => [
-        for (final id in product.ingredientIds)
-          for (final ing in mockIngredients)
-            if (ing.id == id) ing,
-      ];
-
   @override
-  Widget build(BuildContext context) {
-    final ingredients = _ingredients;
-    // 대표성분 = 앞 3개.
-    final key = ingredients.take(3).toList();
-    // 성분들을 BSTI 성분 id로 변환 → 실제 권장 유형 매칭.
-    final bstiIds =
-        ingredients.map((i) => i.bstiIngredientId).whereType<String>();
-    final matchedType = BstiEngine.matchTypeByIngredients(bstiIds);
+  Widget build(BuildContext context, WidgetRef ref) {
+    final async = ref.watch(
+      ingredientsByIdsProvider(ingredientIdsKey(product.ingredientIds)),
+    );
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -40,7 +31,34 @@ class ProductDetailScreen extends StatelessWidget {
         elevation: 0,
         title: const Text('제품 상세', style: AppTextStyles.title),
       ),
-      body: ListView(
+      body: async.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (_, __) => _errorView(),
+        data: (ingredients) => _body(ingredients),
+      ),
+    );
+  }
+
+  /// 성분을 못 불러왔을 때. "성분 없음"과 구분되게 보여준다.
+  Widget _errorView() => Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text('성분 정보를 불러오지 못했어요',
+              textAlign: TextAlign.center,
+              style: AppTextStyles.body
+                  .copyWith(color: AppColors.textSecondary)),
+        ),
+      );
+
+  Widget _body(List<Ingredient> ingredients) {
+    // 대표성분 = 앞 3개 (저장소가 요청 순서를 지켜준다).
+    final key = ingredients.take(3).toList();
+    // 성분들을 BSTI 성분 id로 변환 → 실제 권장 유형 매칭.
+    final bstiIds =
+        ingredients.map((i) => i.bstiIngredientId).whereType<String>();
+    final matchedType = BstiEngine.matchTypeByIngredients(bstiIds);
+
+    return ListView(
         padding: const EdgeInsets.fromLTRB(24, 60, 24, 32),
         children: [
           // 제품 이미지 (없으면 플레이스홀더).
@@ -141,7 +159,6 @@ class ProductDetailScreen extends StatelessWidget {
           const SizedBox(height: 10),
           for (final i in ingredients) _ingredientRow(i),
         ],
-      ),
     );
   }
 

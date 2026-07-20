@@ -1,42 +1,40 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/mock/mock_data.dart';
 import '../../bsti/bsti.dart';
 import '../../bsti/bsti_result_store.dart';
+import '../../ingredient/data/ingredient_providers.dart';
 import '../../my_shelf/data/shelf_preference.dart';
 import '../../product/data/models/product.dart';
+import '../../product/data/product_providers.dart';
 import 'report_engine.dart';
-
-/// 제품 id → 그 제품이 가진 BSTI 성분 id 목록.
-///
-/// ⚠️ 지금은 목데이터에서 찾는다. (mockProducts → mockIngredients)
-/// 백엔드가 붙으면 이 함수만 API 조회로 바꾸면 되고,
-/// [ReportEngine] 은 목데이터를 전혀 모르므로 그대로 둔다.
-List<String> _bstiIngredientIdsOf(int productId) {
-  final product = mockProducts.where((p) => p.id == productId).firstOrNull;
-  if (product == null) return const [];
-
-  final ids = <String>[];
-  for (final ingredientId in product.ingredientIds) {
-    final ing =
-        mockIngredients.where((i) => i.id == ingredientId).firstOrNull;
-    final bstiId = ing?.bstiIngredientId;
-    if (bstiId != null) ids.add(bstiId);
-  }
-  return ids;
-}
 
 /// 화장대 종합 보고서 — 내 BSTI 유형 + 담은 제품으로 계산된다.
 ///
 /// 검사를 다시 하거나 제품을 담으면 자동으로 다시 계산된다.
-final shelfReportProvider = Provider<ShelfReport>((ref) {
+///
+/// 설계 메모: [ReportEngine] 은 **동기 순수 함수로 유지한다.**
+/// 성분 조회를 엔진 안으로 넣으면 제품마다 순차 왕복이 생기고,
+/// 검증된 도메인 로직이 네트워크에 묶인다. 대신 여기서 성분 맵을
+/// 한 번에(배치) 받아둔 뒤, 엔진에는 동기 콜백으로 넘긴다.
+final shelfReportProvider = FutureProvider<ShelfReport>((ref) async {
   final typeCode = ref.watch(bstiResultProvider);
   final entries = ref.watch(shelfPreferenceProvider);
+
+  final productIds =
+      entries.where((e) => e.isProduct).map((e) => e.id).toList();
+
+  // 담은 제품들의 BSTI 성분을 배치로 1회 조회.
+  final byProduct = productIds.isEmpty
+      ? const <int, List<String>>{}
+      : await ref
+          .watch(ingredientRepositoryProvider)
+          .bstiIdsByProducts(productIds);
 
   return ReportEngine.build(
     typeCode: typeCode,
     entries: entries,
-    ingredientIdsOf: _bstiIngredientIdsOf,
+    // 이미 받아둔 맵을 읽기만 하므로 여전히 동기 — 엔진 시그니처 그대로.
+    ingredientIdsOf: (id) => byProduct[id] ?? const [],
   );
 });
 
@@ -60,12 +58,14 @@ class ShelfSuggestion {
 
 /// 보고서 하단 "OO 성분이 부족합니다 → 이 제품을 추천해요".
 ///
-/// ⚠️ 목데이터 기반. 부족 성분(권장인데 화장대에 없는 것) 중 위에서부터
-/// 최대 3개를 골라, 그 성분을 가진 목 제품을 붙인다.
-/// 이미 화장대에 담은 제품과 추천할 제품이 없는 성분은 제외한다.
-final shelfSuggestionsProvider = Provider<List<ShelfSuggestion>>((ref) {
-  final report = ref.watch(shelfReportProvider);
+/// 부족 성분(내 유형 권장인데 화장대에 없는 것) 중 위에서부터 최대 3개를 골라,
+/// 그 성분을 가진 제품을 붙인다. 이미 담은 제품은 제외한다.
+/// **추천할 제품이 없는 성분은 아예 넣지 않는다** — 행동할 수 없는 안내라서.
+final shelfSuggestionsProvider =
+    FutureProvider<List<ShelfSuggestion>>((ref) async {
+  final report = await ref.watch(shelfReportProvider.future);
   final entries = ref.watch(shelfPreferenceProvider);
+  final repo = ref.watch(productRepositoryProvider);
 
   // 이미 담은 제품은 다시 추천하지 않는다.
   final ownedProductIds =
@@ -76,19 +76,11 @@ final shelfSuggestionsProvider = Provider<List<ShelfSuggestion>>((ref) {
     final info = kBstiIngredients[bstiId];
     if (info == null) continue;
 
-    // 이 BSTI 성분을 담고 있는 목 제품 찾기.
-    final products = <Product>[];
-    for (final p in mockProducts) {
-      if (ownedProductIds.contains(p.id)) continue;
-      final has = p.ingredientIds.any((id) {
-        final ing = mockIngredients.where((i) => i.id == id).firstOrNull;
-        return ing?.bstiIngredientId == bstiId;
-      });
-      if (has) products.add(p);
-      if (products.length == 2) break; // 성분당 최대 2개만
-    }
-
-    // 추천할 제품이 없으면 "부족합니다"만 띄우지 않는다 (행동할 수 없는 안내라서).
+    final products = await repo.findByBstiIngredient(
+      bstiId,
+      exclude: ownedProductIds,
+      limit: 2, // 성분당 최대 2개
+    );
     if (products.isEmpty) continue;
 
     suggestions.add(ShelfSuggestion(

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -5,10 +7,11 @@ import 'package:go_router/go_router.dart';
 import '../../../../app/theme/app_assets.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_text_styles.dart';
-import '../../../../core/mock/mock_data.dart';
 import '../../../../core/widgets/pixel_box.dart';
+import '../../../ingredient/data/ingredient_providers.dart';
 import '../../../ingredient/data/models/ingredient.dart';
 import '../../../product/data/models/product.dart';
+import '../../../product/data/product_providers.dart';
 import '../../data/shelf_preference.dart';
 import '../widgets/preference_dialog.dart';
 import 'ingredient_detail_screen.dart';
@@ -16,9 +19,8 @@ import 'product_detail_screen.dart';
 
 /// 제품·성분 검색 화면.
 ///
-/// 입력하면 목데이터(mockProducts / mockIngredients)에서 실시간 필터.
+/// 입력하면 저장소에서 검색한다(제품·성분 각각).
 /// 결과를 누르면 선호/기피 선택 팝업이 뜨고, 고르면 내 화장대에 담긴다.
-/// (백엔드 없이 프론트 목데이터로 동작)
 class ShelfAddScreen extends ConsumerStatefulWidget {
   const ShelfAddScreen({super.key});
 
@@ -28,38 +30,39 @@ class ShelfAddScreen extends ConsumerStatefulWidget {
 
 class _ShelfAddScreenState extends ConsumerState<ShelfAddScreen> {
   final _controller = TextEditingController();
+
+  /// 실제로 검색에 쓰이는 값 (디바운스를 거친 뒤 갱신된다).
   String _query = '';
+  Timer? _debounce;
+
+  /// 한글 IME는 자모마다 onChanged 를 쏜다 — '아토베리어' 한 단어에 10회 이상.
+  /// 그대로 두면 타이핑 중 요청이 그만큼 나가므로 입력이 멎은 뒤에만 검색한다.
+  static const _debounceDelay = Duration(milliseconds: 300);
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _controller.dispose();
     super.dispose();
   }
 
-  List<Product> get _matchedProducts {
-    if (_query.isEmpty) return const [];
-    final q = _query.toLowerCase();
-    return mockProducts
-        .where((p) =>
-            p.name.toLowerCase().contains(q) ||
-            (p.brand ?? '').toLowerCase().contains(q))
-        .toList();
-  }
-
-  List<Ingredient> get _matchedIngredients {
-    if (_query.isEmpty) return const [];
-    final q = _query.toLowerCase();
-    return mockIngredients
-        .where((i) =>
-            (i.nameKor ?? '').toLowerCase().contains(q) ||
-            i.nameEng.toLowerCase().contains(q))
-        .toList();
+  void _onChanged(String value) {
+    _debounce?.cancel();
+    final next = value.trim();
+    // 지우기는 즉시 반영 (빈 화면으로 바로 돌아가야 자연스럽다).
+    if (next.isEmpty) {
+      setState(() => _query = '');
+      return;
+    }
+    _debounce = Timer(_debounceDelay, () {
+      if (mounted) setState(() => _query = next);
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    final products = _matchedProducts;
-    final ingredients = _matchedIngredients;
+    final productsAsync = ref.watch(productSearchProvider(_query));
+    final ingredientsAsync = ref.watch(ingredientSearchProvider(_query));
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -96,7 +99,7 @@ class _ShelfAddScreenState extends ConsumerState<ShelfAddScreen> {
                       child: TextField(
                         controller: _controller,
                         autofocus: true,
-                        onChanged: (v) => setState(() => _query = v.trim()),
+                        onChanged: _onChanged,
                         decoration: const InputDecoration(
                           hintText: '제품·성분명을 입력해주세요',
                           border: InputBorder.none,
@@ -121,21 +124,7 @@ class _ShelfAddScreenState extends ConsumerState<ShelfAddScreen> {
               Expanded(
                 child: _query.isEmpty
                     ? _emptyHint()
-                    : (products.isEmpty && ingredients.isEmpty)
-                        ? _noResult()
-                        : ListView(
-                            children: [
-                              if (products.isNotEmpty) ...[
-                                _sectionLabel('제품'),
-                                for (final p in products) _productTile(p),
-                                const SizedBox(height: 16),
-                              ],
-                              if (ingredients.isNotEmpty) ...[
-                                _sectionLabel('성분'),
-                                for (final i in ingredients) _ingredientTile(i),
-                              ],
-                            ],
-                          ),
+                    : _results(productsAsync, ingredientsAsync),
               ),
               // 완료 — 누르면 내 화장대로 돌아간다.
               Padding(
@@ -164,6 +153,85 @@ class _ShelfAddScreenState extends ConsumerState<ShelfAddScreen> {
     );
   }
 
+  /// 검색 결과 영역.
+  ///
+  /// 로딩 / 실패 / 결과없음을 **구분해서** 보여준다.
+  /// 특히 실패와 결과없음이 같아 보이면, 백엔드 연동이 안 된 건지
+  /// 정말 결과가 없는 건지 알 수 없다.
+  Widget _results(
+    AsyncValue<List<Product>> productsAsync,
+    AsyncValue<List<Ingredient>> ingredientsAsync,
+  ) {
+    // 둘 중 하나라도 실패하면 실패로 본다 (부분 결과는 오해를 부른다).
+    if (productsAsync.hasError || ingredientsAsync.hasError) {
+      return _errorView();
+    }
+    // 둘 다 와야 결과를 그린다 — 섹션이 따로 깜빡이지 않게.
+    if (productsAsync.isLoading || ingredientsAsync.isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    final products = productsAsync.value ?? const <Product>[];
+    final ingredients = ingredientsAsync.value ?? const <Ingredient>[];
+    if (products.isEmpty && ingredients.isEmpty) return _noResult();
+
+    return ListView(
+      children: [
+        if (products.isNotEmpty) ...[
+          _sectionLabel('제품'),
+          for (final p in products) _productTile(p),
+          const SizedBox(height: 16),
+        ],
+        if (ingredients.isNotEmpty) ...[
+          _sectionLabel('성분'),
+          for (final i in ingredients) _ingredientTile(i),
+        ],
+      ],
+    );
+  }
+
+  /// 검색 실패 — 다시 시도할 수 있게 한다.
+  Widget _errorView() => Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('검색에 실패했어요',
+                style: AppTextStyles.body
+                    .copyWith(color: AppColors.textSecondary)),
+            const SizedBox(height: 12),
+            GestureDetector(
+              onTap: () {
+                ref.invalidate(productSearchProvider(_query));
+                ref.invalidate(ingredientSearchProvider(_query));
+              },
+              behavior: HitTestBehavior.opaque,
+              child: PixelBox(
+                borderColor: AppColors.primary,
+                pixel: 5,
+                borderWidth: 2,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                child: Text('다시 시도',
+                    style: AppTextStyles.caption
+                        .copyWith(color: AppColors.primaryDark)),
+              ),
+            ),
+          ],
+        ),
+      );
+
+  /// 화장대 목록에서 이 항목의 선호/기피를 찾는다. 안 담았으면 null.
+  static PreferenceKind? _kindOf(
+    List<ShelfEntry> entries, {
+    required int id,
+    required bool isProduct,
+  }) {
+    for (final e in entries) {
+      if (e.id == id && e.isProduct == isProduct) return e.kind;
+    }
+    return null;
+  }
+
   Widget _sectionLabel(String text) => Padding(
         padding: const EdgeInsets.only(bottom: 8, top: 4),
         child: Text(text,
@@ -172,9 +240,9 @@ class _ShelfAddScreenState extends ConsumerState<ShelfAddScreen> {
       );
 
   Widget _productTile(Product p) {
-    final kind = ref
-        .read(shelfPreferenceProvider.notifier)
-        .kindOf(id: p.id, isProduct: true);
+    // watch — 담기면 뱃지가 알아서 갱신된다 (수동 setState 불필요).
+    final kind = ref.watch(shelfPreferenceProvider
+        .select((s) => _kindOf(s, id: p.id, isProduct: true)));
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
@@ -266,7 +334,6 @@ class _ShelfAddScreenState extends ConsumerState<ShelfAddScreen> {
     ref.read(shelfPreferenceProvider.notifier).add(
           ShelfEntry(id: id, name: name, isProduct: isProduct, kind: kind),
         );
-    setState(() {}); // 뱃지 갱신
 
     if (!mounted) return;
     final what = isProduct ? '제품' : '성분';
@@ -279,9 +346,8 @@ class _ShelfAddScreenState extends ConsumerState<ShelfAddScreen> {
   }
 
   Widget _ingredientTile(Ingredient i) {
-    final kind = ref
-        .read(shelfPreferenceProvider.notifier)
-        .kindOf(id: i.id, isProduct: false);
+    final kind = ref.watch(shelfPreferenceProvider
+        .select((s) => _kindOf(s, id: i.id, isProduct: false)));
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),

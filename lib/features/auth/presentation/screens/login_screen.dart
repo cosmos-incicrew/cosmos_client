@@ -118,11 +118,19 @@ class LoginSheet extends ConsumerWidget {
       );
   }
 
-  /// 카카오 로그인 (⚠️ 목 — 누르면 무조건 성공).
+  /// 카카오 로그인.
   /// 로그인 후 온보딩을 마쳤으면 홈, 아니면 프로필 등록으로 보낸다.
+  ///
+  /// SDK 연동 전에는 [UnimplementedError] 가 나므로, 크래시 대신
+  /// 다른 소셜 버튼과 같은 안내를 띄운다.
   Future<void> _kakaoLogin(BuildContext context, WidgetRef ref) async {
     final ctrl = ref.read(authControllerProvider.notifier);
-    await ctrl.signInWithKakao();
+    try {
+      await ctrl.signInWithKakao();
+    } on UnimplementedError {
+      if (context.mounted) _notReady(context);
+      return;
+    }
     if (!context.mounted) return;
 
     // 로그인 시트를 닫고 다음 단계로.
