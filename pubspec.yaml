@@ -55,7 +55,13 @@ flutter:
     # 이미지 (PNG) — 용도별 분리. 폴더 구조는 assets/README.md 참고.
     - assets/images/logo/
     - assets/images/onboarding/
+    - assets/images/profile/    # 성별 선택 고양이 (female.png / male.png)
     - assets/images/bsti/
+    - assets/images/bsti/cat/      # 유형별 고양이 캐릭터 (파일명: OSPW.png … DRNT.png)
+    - assets/images/bsti/label/    # 유형별 영문 코드 라벨 (파일명: OSPW.png … DRNT.png)
+    - assets/images/bsti/icon/     # 권장/주의 성분 아이콘 (recommend.png / avoid.png)
+    - assets/images/home/
+    - assets/images/product/   # 제품 이미지 (목데이터용, 파일명: p1.png … p6.png)
     - assets/images/common/
     # 아이콘 (PNG)
     - assets/icons/social/

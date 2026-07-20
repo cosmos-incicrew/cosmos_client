@@ -1,90 +1,270 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../app/theme/app_assets.dart';
 import '../../../../app/theme/app_colors.dart';
+import '../../../../app/theme/app_text_styles.dart';
+import '../../../../core/widgets/pixel_box.dart';
 
-/// 홈 화면 — 기능 허브.
-/// (피그마 Home: 제품·성분 검색바 + 내 화장대 만들기 + 맞춤 제품추천 + BSTI + My skin i-TEM)
+/// 홈 화면 — 기능 허브. (피그마 가안 레이아웃)
+///
+/// 상단바: 햄버거(좌) · COSMOS 로고(중앙) · 마이페이지(우)
+/// 검색바: "제품·성분" 라벨 + 알약형 입력창
+/// 섹션: ① 내 화장대 점수 배너(이미지 전체가 버튼 → BSTI)
+///        ② 2×2 메뉴 (피부타입 검사·맞춤 제품추천 / 내 화장대·베스트 궁합추천)
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('cosmos')),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          _searchBar(context),
-          const SizedBox(height: 20),
-          _entryCard(
-            context,
-            title: 'BSTI 검사',
-            subtitle: '16가지 유형 피부타입 검사 · 내 피부와 화장대의 종합분석',
-            icon: Icons.psychology_outlined,
-            onTap: () => context.push('/bsti'),
+      appBar: AppBar(
+        // 좌: 햄버거 메뉴 (Builder로 감싸 Scaffold context 확보)
+        leading: Builder(
+          builder: (ctx) => IconButton(
+            icon: const Icon(Icons.menu, color: AppColors.textPrimary),
+            iconSize: 32,
+            onPressed: () => Scaffold.of(ctx).openDrawer(),
           ),
-          _entryCard(
-            context,
-            title: '내 화장대 만들기',
-            subtitle: '내 화장대는 몇 점? · 자주 쓰는 제품·성분 등록',
-            icon: Icons.shelves,
-            onTap: () => context.push('/shelf'),
+        ),
+        leadingWidth: 64,
+        // 중앙: COSMOS 워드마크 로고 (위 여백을 줘서 답답하지 않게)
+        title: Padding(
+          padding: const EdgeInsets.only(top: 16),
+          child: Image.asset(AppAssets.logoWordmark, height: 52),
+        ),
+        centerTitle: true,
+        // 우: 마이페이지
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.person_outline, color: AppColors.textPrimary),
+            iconSize: 32,
+            onPressed: () => context.go('/profile'),
           ),
-          _entryCard(
-            context,
-            title: '맞춤 제품추천',
-            subtitle: 'My skin i-TEM · 나와 꼭 맞는 성분·제품 추천',
-            icon: Icons.recommend_outlined,
-            onTap: () => context.push('/recommendation'),
-          ),
+          const SizedBox(width: 8),
         ],
+        toolbarHeight: 96,
+      ),
+      drawer: const _HomeDrawer(),
+      // 한 화면에 들어오게 배치하되, 작은 화면에선 안전하게 스크롤.
+      // IntrinsicHeight — 스크롤 안에서도 Spacer가 동작하도록 높이를 확정한다.
+      body: SafeArea(
+        child: LayoutBuilder(
+          builder: (context, constraints) => SingleChildScrollView(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: constraints.maxHeight),
+              child: IntrinsicHeight(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 12, 24, 8),
+                  child: Column(
+                    children: [
+                      _searchBar(context),
+                      // 검색창 바로 아래로 배너를 붙인다.
+                      const SizedBox(height: 16),
+                      _shelfScoreSection(context),
+                      // 배너와 메뉴 사이는 붙이고, 남는 공간은 아래로 몬다.
+                      const SizedBox(height: 16),
+                      _menuGrid(context),
+                      const Spacer(flex: 3),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
 
+  // ── 검색바: 🔍 제품·성분 + 알약형 입력창 ──
   Widget _searchBar(BuildContext context) {
-    return InkWell(
-      onTap: () => context.push('/shelf/add'),
-      borderRadius: BorderRadius.circular(14),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-        decoration: BoxDecoration(
-          color: AppColors.primary.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(14),
+    return Row(
+      children: [
+        Image.asset(AppAssets.iconSearch,
+            width: 34,
+            height: 34,
+            errorBuilder: (_, __, ___) => const Icon(Icons.search,
+                color: AppColors.textPrimary, size: 32)),
+        const SizedBox(width: 8),
+        Text('제품·성분',
+            style: AppTextStyles.title.copyWith(color: AppColors.textPrimary)),
+        const SizedBox(width: 10),
+        Expanded(
+          child: GestureDetector(
+            onTap: () => context.push('/shelf/add'),
+            behavior: HitTestBehavior.opaque,
+            child: PixelBox(
+              borderColor: AppColors.textPrimary,
+              // 그림자 없이 테두리만.
+              pixel: 6,
+              borderWidth: 2.5,
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              child: Text('여기에 제품·성분명을 입력해주세요',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTextStyles.caption
+                      .copyWith(color: AppColors.textSecondary)),
+            ),
+          ),
         ),
-        child: const Row(
+      ],
+    );
+  }
+
+  // ── ① 내 화장대는 몇 점? — 배너 이미지 한 장 전체가 버튼 ──
+  //
+  // 타이틀·설명·START·고양이가 이미지 안에 모두 그려져 있어서
+  // 따로 텍스트나 버튼 위젯을 얹지 않는다. 이미지 전체를 탭하면 BSTI로.
+  Widget _shelfScoreSection(BuildContext context) {
+    // 배너 문구가 "종합분석 보고서 보러가기" → 보고서로.
+    // (BSTI 검사 전이면 보고서가 "검사 먼저" 안내를 띄운다)
+    return _ImageButton(
+      asset: AppAssets.homeShelfScoreBanner,
+      label: '내 화장대 점수는??',
+      onTap: () => context.push('/report'),
+    );
+  }
+
+  // ── ② 메뉴 — [BSTI | 내 화장대] 2단, 그 아래 My-Skin ITEM 가로 전체 ──
+  //
+  // 이미지 안에 캡션·타이틀·버튼이 모두 그려져 있어 텍스트를 얹지 않는다.
+  Widget _menuGrid(BuildContext context) {
+    return Column(
+      children: [
+        // 1행: BSTI | 내 화장대 (정사각 이미지 2장 → 좌우 균등)
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(Icons.search, color: AppColors.primary),
-            SizedBox(width: 12),
-            Text('여기에 제품·성분명을 입력해주세요',
-                style: TextStyle(color: AppColors.textSecondary)),
+            Expanded(
+              child: _ImageButton(
+                asset: AppAssets.homeBsti,
+                label: 'BSTI 피부타입 검사',
+                onTap: () => context.push('/bsti'),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _ImageButton(
+                asset: AppAssets.homeShelf,
+                label: '내 화장대 만들기',
+                // 화장대(담은 리스트)로. 담기는 거기 검색창에서 한다.
+                onTap: () => context.go('/shelf'),
+              ),
+            ),
           ],
         ),
+        const SizedBox(height: 12),
+        // 2행: My-Skin ITEM — 가로로 긴 이미지. 폭을 살짝만 좁힌다.
+        FractionallySizedBox(
+          widthFactor: 0.88,
+          child: _ImageButton(
+            asset: AppAssets.homeMyItem,
+            label: '나와 베스트 궁합 제품추천',
+            onTap: () => context.push('/recommendation'),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// 이미지 한 장이 통째로 버튼인 홈 메뉴.
+///
+/// 캡션·타이틀·화살표가 이미지 안에 그려져 있으므로 위에 아무것도 얹지 않는다.
+/// 이미지가 없을 때만 [label] 텍스트 플레이스홀더로 대체한다.
+class _ImageButton extends StatelessWidget {
+  const _ImageButton({
+    required this.asset,
+    required this.label,
+    required this.onTap,
+  });
+
+  final String asset;
+
+  /// 이미지 로드 실패 시 보여줄 대체 문구 (스크린리더 라벨 겸용).
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: label,
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: Image.asset(
+          asset,
+          fit: BoxFit.contain,
+          errorBuilder: (_, __, ___) => Container(
+            height: 100,
+            decoration: BoxDecoration(
+              color: AppColors.primaryLight.withValues(alpha: 0.4),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            alignment: Alignment.center,
+            child: Text(label,
+                textAlign: TextAlign.center,
+                style: AppTextStyles.caption
+                    .copyWith(color: AppColors.textPrimary)),
+          ),
+        ),
       ),
     );
   }
+}
 
-  Widget _entryCard(
-    BuildContext context, {
-    required String title,
-    required String subtitle,
-    required IconData icon,
-    required VoidCallback onTap,
-  }) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        leading: CircleAvatar(
-          backgroundColor: AppColors.primary.withValues(alpha: 0.12),
-          child: Icon(icon, color: AppColors.primary),
+/// 햄버거 메뉴 드로어 (임시 — 실제 메뉴 항목은 피그마 확정 후 채움).
+class _HomeDrawer extends StatelessWidget {
+  const _HomeDrawer();
+
+  @override
+  Widget build(BuildContext context) {
+    return Drawer(
+      child: SafeArea(
+        child: ListView(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: Image.asset(AppAssets.logoWordmark, height: 32),
+            ),
+            const Divider(height: 1),
+            ListTile(
+              leading: const Icon(Icons.psychology_outlined),
+              title: const Text('BSTI 검사'),
+              onTap: () {
+                Navigator.pop(context);
+                context.push('/bsti');
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.shelves),
+              title: const Text('나의 화장대'),
+              onTap: () {
+                Navigator.pop(context);
+                context.go('/shelf');
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.recommend_outlined),
+              title: const Text('맞춤 제품추천'),
+              onTap: () {
+                Navigator.pop(context);
+                context.push('/recommendation');
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.person_outline),
+              title: const Text('마이페이지'),
+              onTap: () {
+                Navigator.pop(context);
+                context.go('/profile');
+              },
+            ),
+          ],
         ),
-        title: Text(title,
-            style: const TextStyle(fontWeight: FontWeight.w800)),
-        subtitle: Text(subtitle),
-        trailing: const Icon(Icons.chevron_right),
-        onTap: onTap,
       ),
     );
   }

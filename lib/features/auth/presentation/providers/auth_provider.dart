@@ -31,6 +31,11 @@ class AuthController extends StateNotifier<AuthState> {
     await _repo.signOut();
     state = AuthState.unauthenticated;
   }
+
+  /// 온보딩(프로필·피부고민)을 마쳤을 때 호출 → 홈으로 진입 가능.
+  void completeOnboarding() {
+    state = state.copyWith(onboarded: true);
+  }
 }
 
 final authControllerProvider =

@@ -11,12 +11,17 @@ class Product {
     this.subCategory,
     this.productUrl,
     this.ingredientIds = const [],
+    this.imageAsset,
   });
 
   final int id; // product_id
   final String name; // product_name
   final String? brand;
   final String? imageUrl;
+
+  /// 로컬 제품 이미지 경로 (예: 'assets/images/product/p1.png').
+  /// 목데이터/직접 확보한 이미지용. 네트워크 [imageUrl]보다 우선 표시한다.
+  final String? imageAsset;
   final String? mainCategory; // 예: "스킨케어"
   final String? subCategory; // 예: "세럼/앰플"
   final String? productUrl;
@@ -39,27 +44,5 @@ class Product {
   }
 }
 
-/// 개발용 샘플 데이터. API 연동 전 UI 확인에 사용 (피그마 예시 제품 반영).
-const sampleProducts = <Product>[
-  Product(
-    id: 1,
-    name: '아토베리어365 크림',
-    brand: '에스트라',
-    mainCategory: '스킨케어',
-    subCategory: '크림',
-  ),
-  Product(
-    id: 2,
-    name: '아토베리어365 하이드로 크림',
-    brand: '에스트라',
-    mainCategory: '스킨케어',
-    subCategory: '크림',
-  ),
-  Product(
-    id: 3,
-    name: '아토베리어365 캡슐토너',
-    brand: '에스트라',
-    mainCategory: '스킨케어',
-    subCategory: '토너',
-  ),
-];
+// 목(mock) 제품 데이터는 lib/core/mock/mock_data.dart 로 분리했다.
+// (백엔드 연동 시 그 폴더째 삭제)

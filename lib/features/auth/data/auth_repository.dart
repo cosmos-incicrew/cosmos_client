@@ -1,3 +1,4 @@
+import '../../../core/mock/mock_data.dart';
 import 'auth_state.dart';
 
 /// 인증 저장소 인터페이스.
@@ -22,13 +23,18 @@ class AuthRepository {
     );
   }
 
-  /// 카카오 로그인. (7/7 확정 — 공식 SDK)
-  /// TODO: kakao_flutter_sdk_user 연동
+  /// 카카오 로그인.
+  ///
+  /// ⚠️ 지금은 **목 로그인** — SDK 없이 누르면 무조건 성공한다.
+  /// (mockKakaoUser 반환. lib/core/mock/ 참고)
+  ///
+  /// TODO: kakao_flutter_sdk_user 연동 시 아래 목 반환을 지우고 실제 구현으로 교체
   ///   1) main 에서 KakaoSdk.init(nativeAppKey: ...)
   ///   2) UserApi.instance.loginWithKakaoTalk() / loginWithKakaoAccount()
   ///   3) 받은 토큰으로 Supabase signInWithIdToken 연동
   Future<AuthState> signInWithKakao() async {
-    throw UnimplementedError('카카오 로그인은 SDK 연동 후 구현 예정');
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+    return mockKakaoUser;
   }
 
   /// 네이버 로그인 (커뮤니티 SDK — 초기 PoC)

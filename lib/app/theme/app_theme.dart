@@ -38,6 +38,8 @@ class AppTheme {
       appBarTheme: AppBarTheme(
         centerTitle: true,
         elevation: 0,
+        // 기능 화면들이 답답하지 않게 상단 바 높이를 넉넉히.
+        toolbarHeight: 88,
         scrolledUnderElevation: 0.5,
         backgroundColor:
             isLight ? AppColors.background : colorScheme.surface,
