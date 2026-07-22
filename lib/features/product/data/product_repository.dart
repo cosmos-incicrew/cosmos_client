@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 
 import '../../../core/config/env.dart';
 import 'models/product.dart';
+import 'models/product_compare.dart';
 
 /// 제품 데이터 접근 — cosmos_server `/api/v1/products/*` 연동.
 ///
@@ -59,6 +60,31 @@ class ProductRepository {
       '/api/v1/products/$productId/ingredients',
     );
     return ((res.data?['ingredient_ids'] as List?) ?? const []).cast<int>();
+  }
+
+  /// 다중 제품 비교 — 성분이 어느 제품에 공통/개별로 들었는지.
+  ///
+  /// POST /api/v1/products/compare  { "product_ids": [101, 102] }
+  /// 제품 2~4개 (4개 제한은 MVP 초기값 — 서버가 바꿀 수 있다).
+  ///
+  /// 후속 성분 정보 요청에는 응답의 `ingredient_ids` 를 **그대로** 쓴다
+  /// (중복 제거돼 있음 — presence 에서 다시 모으지 말 것, 명세서 지시).
+  ///
+  /// 실패는 전체 실패다 — 한 제품이라도 문제면 부분 결과 없이 에러가 온다:
+  ///   400 DUPLICATE_PRODUCT_IDS / PRODUCT_COMPARE_LIMIT_EXCEEDED
+  ///   404 PRODUCT_NOT_FOUND
+  ///   422 PRODUCT_NOT_ANALYZABLE / VALIDATION_ERROR (2개 미만)
+  /// 화면은 DioException.response 의 error.code 로 안내를 구분한다.
+  Future<ProductCompareResult> compare(List<int> productIds) async {
+    if (!Env.hasApi) {
+      // 비교는 명시적 사용자 액션이라 빈 결과로 얼버무리면 오해를 만든다.
+      throw StateError('API_BASE_URL 미설정 — 제품 비교는 서버가 필요합니다');
+    }
+    final res = await _dio.post<Map<String, dynamic>>(
+      '/api/v1/products/compare',
+      data: {'product_ids': productIds},
+    );
+    return ProductCompareResult.fromJson(res.data ?? const {});
   }
 
   /// 전체 제품 — 추천 화면이 카테고리별로 묶어 쓴다.

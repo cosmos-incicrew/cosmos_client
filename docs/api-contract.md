@@ -34,7 +34,24 @@ flutter run \
 |---|---|---|
 | `GET /api/v1/products/search?q=&limit=` | `ProductRepository.search` | 제품명 검색 |
 | `GET /api/v1/products/{id}/ingredients` | `ProductRepository.getIngredientIds` | 확정 성분 id (배합 순서) |
+| `POST /api/v1/products/compare` | `ProductRepository.compare` | 다중 제품 비교 (2~4개) |
 | `GET /api/v1/ingredients/search?q=&limit=` | `IngredientRepository.search` | 성분 이명 검색 |
+| `GET /api/v1/ingredients/{id}/detail` | `IngredientRepository.getDetail` | ① 개별 성분 해설 |
+| `POST /api/v1/ingredients/product-summary` | `IngredientRepository.getProductSummary` | ② 대표성분 Top-3 + 요약 |
+| `POST /api/v1/ingredients/comparison-summary` | `IngredientRepository.getComparisonSummary` | ③ 비교 해설 (compare 응답을 그대로 전달) |
+
+**성분 해설 API(①②③) 공통 규칙** (노션 "성분 해설 API 명세" 요약):
+
+- `status: "확인 불가"` 는 **에러가 아니다** — 정보가 아직 없다는 뜻.
+  정상 화면에 "아직 정보가 없습니다"를 띄운다. 404 만 잘못된 id.
+- `safety` 는 세 형태: `[공식 규제]` 시작(경고 강조) / 일반 참고(보통) /
+  `안전성 확인 불가`(**"안전하다"가 아니라 "모른다"** — 안전 표시 금지).
+  분류 헬퍼: `classifySafety()`.
+- ②③ `summary` 의 "주의: " 줄은 `splitCaution()` 으로 분리해 강조한다.
+- `source_verified: false` = 검증 안 된 출처를 서버가 제거함. **본문은 유효** —
+  출처만 표시하지 않는다.
+- ③ 비교 해설은 성분 **구성 차이**만 말한다. 제품 우열·추천은 오지 않는다
+  (배합 비율 비공개 — 판단 근거 없음).
 
 **응답 필드 주의:**
 
@@ -51,11 +68,12 @@ flutter run \
 
 | 엔드포인트 | 내용 |
 |---|---|
-| `GET /api/v1/ingredients/{id}/detail` | 성분 LLM 해설 (status/name/body/safety) |
-| `POST /api/v1/ingredients/product-summary` | `{ingredient_ids}` → 대표성분+요약. **제품 상세를 이쪽으로 개편하는 게 서버 설계와 맞음** |
-| `POST /api/v1/products/compare` | 다중 제품 교차 비교 |
 | `POST /api/v1/recommendations` | RAG 추천 (성분 중심 응답 — 추천 화면 개편 필요) |
-| `POST /api/v1/bsti/submit` | **501 스텁** (담당: 금별 — 프론트가 자체 채점하므로 급하지 않음) |
+| `POST/GET /api/v1/users/me/profile` 외 | 프로필 (팀원이 연동 완료 — `ProfileRepository`) |
+
+**저장소는 연동됐지만 화면이 아직 안 쓰는 것**: compare·①②③은
+저장소 메서드까지 준비됐다. 비교 화면은 신규 화면이라 디자인 확정 후 작업,
+제품 상세의 ② 전환은 별도 작업.
 
 ## BSTI 는 프론트 완결 (팀 결정)
 

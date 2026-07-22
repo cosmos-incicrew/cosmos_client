@@ -3,7 +3,9 @@ import 'package:dio/dio.dart';
 import '../../../core/config/env.dart';
 import '../../bsti/bsti.dart';
 import '../../bsti/bsti_name_matcher.dart';
+import '../../product/data/models/product_compare.dart';
 import 'models/ingredient.dart';
+import 'models/ingredient_insight.dart';
 
 /// 성분 데이터 접근 — cosmos_server `/api/v1/ingredients/*` 연동.
 ///
@@ -45,6 +47,59 @@ class IngredientRepository {
           nameEng: (raw['name_en'] ?? raw['name_kr'] ?? '') as String,
         ),
     ];
+  }
+
+  /// ① 개별 성분 해설 — 성분 토글(자세히보기)에서 클릭 시 호출.
+  ///
+  /// GET /api/v1/ingredients/{id}/detail
+  /// status "확인 불가"는 **에러가 아니다** (name 은 채워져 옴) —
+  /// 정상 화면에 "아직 정보가 없습니다"를 띄운다. 404 만 잘못된 id.
+  /// 502 GENERATION_FAILED / 503 EVIDENCE_UNAVAILABLE → "잠시 후 다시 시도".
+  Future<IngredientDetail> getDetail(int ingredientId) async {
+    if (!Env.hasApi) {
+      throw StateError('API_BASE_URL 미설정 — 성분 해설은 서버가 필요합니다');
+    }
+    final res = await _dio.get<Map<String, dynamic>>(
+      '/api/v1/ingredients/$ingredientId/detail',
+    );
+    return IngredientDetail.fromJson(res.data ?? const {});
+  }
+
+  /// ② 단일 제품 요약 — 제품 상세 상단 (대표성분 Top-3 + 해설).
+  ///
+  /// POST /api/v1/ingredients/product-summary
+  /// [ingredientIds] 는 검색엔진이 준 **배합순 그대로** 넘긴다 —
+  /// 앞쪽 성분이 대표성분이 된다. 요청 성분이 하나도 없을 때만 404.
+  /// summary 의 "주의:" 줄은 [splitCaution] 으로 분리해 강조한다.
+  Future<ProductSummary> getProductSummary(List<int> ingredientIds) async {
+    if (!Env.hasApi) {
+      throw StateError('API_BASE_URL 미설정 — 제품 요약은 서버가 필요합니다');
+    }
+    final res = await _dio.post<Map<String, dynamic>>(
+      '/api/v1/ingredients/product-summary',
+      data: {'ingredient_ids': ingredientIds},
+    );
+    return ProductSummary.fromJson(res.data ?? const {});
+  }
+
+  /// ③ 다중 제품 비교 해설 — 비교 화면 하단.
+  ///
+  /// POST /api/v1/ingredients/comparison-summary
+  /// 요청 본문은 compare(검색엔진) 응답을 **그대로** 넣는다 (명세 지시 —
+  /// [ProductCompareResult.toJson] 이 그 형태다).
+  ///
+  /// 해설은 성분 **구성의 차이**만 말한다 — 제품 간 우열·추천은 오지 않는다.
+  Future<ComparisonSummary> getComparisonSummary(
+    ProductCompareResult compareResult,
+  ) async {
+    if (!Env.hasApi) {
+      throw StateError('API_BASE_URL 미설정 — 비교 해설은 서버가 필요합니다');
+    }
+    final res = await _dio.post<Map<String, dynamic>>(
+      '/api/v1/ingredients/comparison-summary',
+      data: compareResult.toJson(),
+    );
+    return ComparisonSummary.fromJson(res.data ?? const {});
   }
 
   /// id 목록으로 성분 조회 — 제품 상세의 성분 목록. **입력 순서 유지.**

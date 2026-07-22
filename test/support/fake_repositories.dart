@@ -7,9 +7,11 @@
 import 'package:cosmos_app/features/ingredient/data/ingredient_providers.dart';
 import 'package:cosmos_app/features/ingredient/data/ingredient_repository.dart';
 import 'package:cosmos_app/features/ingredient/data/models/ingredient.dart';
+import 'package:cosmos_app/features/ingredient/data/models/ingredient_insight.dart';
 import 'package:cosmos_app/features/onboarding/data/profile_repository.dart';
 import 'package:cosmos_app/features/onboarding/data/profile_store.dart';
 import 'package:cosmos_app/features/product/data/models/product.dart';
+import 'package:cosmos_app/features/product/data/models/product_compare.dart';
 import 'package:cosmos_app/features/product/data/product_providers.dart';
 import 'package:cosmos_app/features/product/data/product_repository.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -84,6 +86,48 @@ class FakeProductRepository implements ProductRepository {
   Future<List<Product>> getByIngredient(int ingredientId) async =>
       testProducts.where((p) => p.ingredientIds.contains(ingredientId)).toList();
 
+  /// 실제 서버처럼 성분 포함 범위(all/partial/single)를 계산한다.
+  @override
+  Future<ProductCompareResult> compare(List<int> productIds) async {
+    final picked =
+        testProducts.where((p) => productIds.contains(p.id)).toList();
+
+    // 성분 id → 포함 제품 id 목록.
+    final byIngredient = <int, List<int>>{};
+    for (final p in picked) {
+      for (final id in p.ingredientIds) {
+        byIngredient.putIfAbsent(id, () => []).add(p.id);
+      }
+    }
+
+    PresenceType typeOf(int count) {
+      if (count == picked.length) return PresenceType.all;
+      if (count > 1) return PresenceType.partial;
+      return PresenceType.single;
+    }
+
+    return ProductCompareResult(
+      products: [
+        for (final p in picked)
+          ComparedProduct(id: p.id, productName: p.name),
+      ],
+      ingredientPresence: [
+        for (final e in byIngredient.entries)
+          IngredientPresence(
+            ingredientId: e.key,
+            nameKr: testIngredients
+                    .where((i) => i.id == e.key)
+                    .firstOrNull
+                    ?.nameKor ??
+                '',
+            productIds: e.value,
+            presenceType: typeOf(e.value.length),
+          ),
+      ],
+      ingredientIds: byIngredient.keys.toList(),
+    );
+  }
+
   @override
   Future<List<Product>> findByBstiIngredient(
     String bstiId, {
@@ -126,6 +170,54 @@ class FakeIngredientRepository implements IngredientRepository {
         for (final id in ids)
           ...testIngredients.where((i) => i.id == id),
       ];
+
+  /// ① 성분 해설 — 아는 성분은 ok, 모르면 실서버처럼 "확인 불가".
+  @override
+  Future<IngredientDetail> getDetail(int ingredientId) async {
+    final ing = testIngredients.where((i) => i.id == ingredientId).firstOrNull;
+    if (ing == null) {
+      return IngredientDetail(
+        status: InsightStatus.unavailable,
+        ingredientId: ingredientId,
+        reason: '테스트 데이터에 없는 성분',
+      );
+    }
+    return IngredientDetail(
+      status: InsightStatus.ok,
+      ingredientId: ing.id,
+      name: ing.nameKor,
+      body: '${ing.displayName} 은(는) ${ing.efficacy ?? '정보 없음'} 에 쓰인다.',
+      safety: '자극이 적은 편입니다',
+    );
+  }
+
+  /// ② 제품 요약 — 배합순 앞 3개를 대표성분으로 (실서버와 같은 규칙).
+  @override
+  Future<ProductSummary> getProductSummary(List<int> ingredientIds) async {
+    final tops = [
+      for (final id in ingredientIds.take(3))
+        TopIngredient(
+          ingredientId: id,
+          name: testIngredients.where((i) => i.id == id).firstOrNull?.nameKor,
+        ),
+    ];
+    return ProductSummary(
+      status: tops.isEmpty ? InsightStatus.unavailable : InsightStatus.ok,
+      topIngredients: tops,
+      summary: tops.isEmpty ? null : '보습 성분 위주로 구성된 제품입니다.\n주의: 테스트 요약입니다.',
+    );
+  }
+
+  /// ③ 비교 해설.
+  @override
+  Future<ComparisonSummary> getComparisonSummary(
+    ProductCompareResult compareResult,
+  ) async {
+    return ComparisonSummary(
+      status: InsightStatus.ok,
+      summary: '${compareResult.products.length}개 제품의 성분 구성을 비교한 테스트 해설입니다.',
+    );
+  }
 
   @override
   Future<Map<int, List<String>>> bstiIdsByProducts(
