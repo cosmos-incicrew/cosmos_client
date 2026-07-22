@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../config/env.dart';
@@ -75,7 +76,11 @@ final dioProvider = Provider<Dio>((ref) {
   dio.interceptors.add(
     buildAuthInterceptor(
       dio: dio,
-      readToken: () => SupabaseService.currentAccessToken,
+      // 실제 로그인 세션이 우선. 없으면 개발용 토큰(DEV_JWT) —
+      // OAuth 설정 없이 API 를 테스트하는 경로로, 릴리즈 빌드에선 무시된다.
+      readToken: () =>
+          SupabaseService.currentAccessToken ??
+          (!kReleaseMode && Env.devJwt.isNotEmpty ? Env.devJwt : null),
       refreshSession: SupabaseService.tryRefreshSession,
       signOut: SupabaseService.signOutIfSignedIn,
     ),

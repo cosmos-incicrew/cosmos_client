@@ -16,6 +16,14 @@
 2. 받은 액세스 토큰을 모든 `/api/v1/*` 호출에 `Authorization: Bearer` 로 첨부
    (`lib/core/network/dio_client.dart` 인터셉터가 자동 처리)
 
+검증 방식은 **ES256/JWKS** — Supabase 가 개인키로 서명하고 서버는 공개키로
+검증만 한다. 프론트는 방식과 무관하게 토큰만 실어 보내면 된다.
+
+**개발용 토큰**: OAuth 설정 전에는 백엔드의 `scripts/dev_token.py` 로 발급한
+토큰을 `--dart-define=DEV_JWT=...` 로 꽂아 테스트한다 (릴리즈 빌드 무시,
+실세션 우선, 약 1시간 만료). Swagger 테스트도 같은 토큰을 쓴다
+(Authorize 에 `Bearer` 빼고 토큰만).
+
 앱 실행에 필요한 값 (`--dart-define`):
 
 ```bash

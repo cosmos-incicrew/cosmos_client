@@ -133,6 +133,24 @@ flutter run -d chrome \
 - Supabase 값 없으면 카카오·구글 버튼은 "준비 중" 안내
 - 카카오 딥링크(`cosmos://login-callback`)는 AndroidManifest 와 일치해야 함
 
+**로그인 없이 API 테스트 (개발용 토큰):**
+
+서버의 모든 `/api/v1/*` 는 JWT 필수라, OAuth 설정 전에는 로그인할 방법이
+없어 401 이 뜬다. 백엔드 레포에서 개발용 토큰을 발급해 꽂으면 우회된다:
+
+```bash
+# cosmos_server 폴더에서 (요구사항·주의는 그쪽 문서 참고)
+uv run python scripts/dev_token.py     # → eyJ... 출력
+
+# 프론트 실행 시 토큰을 넘긴다 (릴리즈 빌드에선 무시됨)
+flutter run -d chrome \
+  --dart-define=API_BASE_URL=http://localhost:8000 \
+  --dart-define=DEV_JWT=eyJ...
+```
+
+토큰은 약 1시간 유효 — 401 이 다시 뜨면 새로 발급한다.
+실제 로그인 세션이 생기면 세션 토큰이 우선한다.
+
 앱 아이콘: `assets/icons/app/app_icon.png`(1024×1024) 넣고
 `dart run flutter_launcher_icons`.
 
