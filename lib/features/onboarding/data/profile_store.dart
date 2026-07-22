@@ -153,6 +153,16 @@ final userProfileProvider =
 ///
 /// 고민에 맞는 성분을 추천 근거로 쓴다. BSTI 데이터셋(bsti_dataset.dart)의
 /// 실제 id만 쓴다 — 없는 id를 지어내면 추천이 조용히 비어버린다.
+/// 피부고민 → **자극·악화** 가능 성분 (BSTI 사전 id, 프론트 규칙).
+///
+/// 보수적으로 확실한 것만: 민감·홍조엔 자극 성분, 여드름엔 모공 막는 성분.
+/// 매핑이 없는 고민은 기피 판정을 하지 않는다 (틀린 경고 방지).
+const kConcernAvoidIngredients = <SkinConcern, List<String>>{
+  SkinConcern.redness: ['fragrance', 'essoil', 'alcohol_hi', 'sls'],
+  SkinConcern.sensitivity: ['fragrance', 'essoil', 'alcohol_hi', 'sls'],
+  SkinConcern.acne: ['coconut', 'ipm', 'lanolin'],
+};
+
 const kConcernIngredients = <SkinConcern, List<String>>{
   SkinConcern.pores: ['niac', 'sal'],
   SkinConcern.brightening: ['niac', 'vcd', 'txa', 'arb'],

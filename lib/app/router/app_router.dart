@@ -23,6 +23,7 @@ import '../../features/onboarding/presentation/screens/profile_setup_screen.dart
 import '../../features/onboarding/presentation/screens/skin_concern_screen.dart';
 import '../../features/profile/presentation/screens/profile_screen.dart';
 import '../../features/recommendation/presentation/screens/recommendation_screen.dart';
+import '../../features/report/presentation/screens/report_care_screen.dart';
 import '../../features/report/presentation/screens/report_screen.dart';
 import 'app_shell.dart';
 
@@ -188,6 +189,13 @@ final routerProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: '/report',
                 builder: (context, state) => const ReportScreen(),
+                routes: [
+                  // 보고서 2페이지 — 사용법·관리법.
+                  GoRoute(
+                    path: 'care',
+                    builder: (context, state) => const ReportCareScreen(),
+                  ),
+                ],
               ),
               // 다중 제품 비교 (성분 구성 차이 + 해설)
               GoRoute(
