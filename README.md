@@ -4,177 +4,162 @@
 
 백엔드는 별도 저장소 [cosmos_server](https://github.com/cosmos-incicrew/cosmos_server)
 (FastAPI)이며, 앱은 Supabase Auth로 로그인해 JWT를 받아 서버 API를 호출한다.
-설계·규칙은 [docs/architecture.md](docs/architecture.md)·[docs/conventions.md](docs/conventions.md) 참고.
+설계·규칙은 [docs/architecture.md](docs/architecture.md)·[docs/conventions.md](docs/conventions.md),
+API 계약 상세는 **[docs/api-contract.md](docs/api-contract.md)** 참고.
 
-> **⚠️ 지금 앱을 켜면 검색·추천·보고서가 빈 화면입니다.**
-> 버그가 아닙니다. 프론트에는 데이터가 없고, 백엔드 연동을 기다리는 상태입니다.
-> BSTI 검사와 게스트 로그인은 지금도 정상 동작합니다.
-> 연동 방법은 아래 [백엔드 연동](#백엔드-연동) 참고.
+> **환경 값(`--dart-define`)이 없으면**: 로그인은 게스트·네이버(목업)만 되고,
+> 검색·추천·보고서·비교는 빈 화면이다 (버그 아님 — 에러/빈 결과를 구분해 표시).
+> 값을 넣으면 그대로 실서버를 호출한다. 아래 [실행 방법](#실행-방법) 참고.
 
 ## 기술 스택
 
 | 구분 | 사용 기술 |
 |------|-----------|
 | 프레임워크 | Flutter (Dart) |
-| 디자인 | Material 3 + cosmos 커스텀 테마 |
+| 디자인 | Material 3 + cosmos 커스텀 테마 (픽셀 컨셉: PixelBox·갈무리 서체) |
 | 상태관리 | Riverpod (`flutter_riverpod`) |
-| 라우팅 | `go_router` |
-| 네트워킹 | `supabase_flutter` + `dio` |
+| 라우팅 | `go_router` (StatefulShellRoute — 고정 헤더/푸터) |
+| 네트워킹 | `supabase_flutter`(인증) + `dio`(API, JWT 자동 첨부) |
 | 이미지 로딩 | `cached_network_image` |
 | 로컬 저장소 | Hive + `flutter_secure_storage` |
-| 로그인 | Supabase Auth OAuth (구글·카카오) + 게스트 |
+| 로그인 | 카카오(웹 OAuth 딥링크) · 구글(네이티브) · 게스트 · 네이버(목업) |
+
+## 화면 구조 — 헤더·푸터 고정
+
+모든 메인 화면은 쉘(`AppShell`) 안에 있다. **헤더(햄버거 서랍 · COSMOS 로고 ·
+마이)와 푸터(화장대/홈/마이 탭)는 쉘이 고정**으로 갖고, 화면들은 자기 AppBar
+없이 body 상단 `ScreenTitle`(뒤로가기+제목)만 갖는다.
+쉘 밖은 로그인 전 진입 흐름(스플래시·온보딩)뿐이다.
+
+**반응형**: 폰 시안 기준 레이아웃이라 콘텐츠를 최대 480px 중앙 정렬로 제한한다
+(`ContentWidth`, 쉘이 일괄 적용). 넓은 표(비교 표 등)는 자기 영역 안에서만
+가로 스크롤한다.
+
+```
+쉘 안 (헤더·푸터 고정)
+├─ 화장대 탭   /shelf → add(검색·담기) → product(제품 상세) → ingredient(성분 상세)
+├─ 홈 탭       /home → /bsti(검사) · /recommendation(추천) · /report(보고서) · /compare(비교)
+└─ 마이 탭     /profile → edit(프로필 수정)
+
+쉘 밖 (로그인 전)
+└─ /splash → /onboarding → 로그인 시트 → profile → concerns → done
+```
+
+## API 구성 (프론트 ↔ cosmos_server)
+
+**원칙: 화면은 저장소(repository)만 본다.** 저장소가 실제 엔드포인트를
+호출하고, 서버 필드명(snake_case)과 프론트 모델의 차이를 저장소에서 흡수한다.
+전 호출에 Supabase JWT 가 자동 첨부된다 (`dio_client.dart` 인터셉터).
+
+### 연동 완료 (백엔드 코드와 대조 검증됨)
+
+| 엔드포인트 | 프론트 메서드 | 쓰는 화면 |
+|---|---|---|
+| `GET /api/v1/products/search` | `ProductRepository.search` | 검색·비교 |
+| `GET /api/v1/products/{id}/ingredients` | `.getIngredientIds` | 제품 상세·보고서 |
+| `POST /api/v1/products/compare` | `.compare` | 비교 |
+| `GET /api/v1/ingredients/search` | `IngredientRepository.search` | 검색 |
+| `GET /api/v1/ingredients/{id}/detail` | `.getDetail` | 성분 해설 (①) |
+| `POST /api/v1/ingredients/product-summary` | `.getProductSummary` | 제품 상세 요약 (②) |
+| `POST /api/v1/ingredients/comparison-summary` | `.getComparisonSummary` | 비교 해설 (③) |
+| `GET·POST /api/v1/users/me/profile`, `DELETE /users/me` | `ProfileRepository` | 온보딩·프로필·탈퇴 |
+
+주의해서 매핑한 것 (자세한 건 [docs/api-contract.md](docs/api-contract.md)):
+
+- 서버는 `name_kr`/`name_en`, 프론트 모델은 `nameKor`/`nameEng` — 저장소가 명시 매핑
+- 제품 검색 응답의 id 필드는 `id` (`product_id` 아님)
+- 검색 응답에 성분 id 없음 — 2단계 설계 (`/products/{id}/ingredients` 별도)
+- ①②③의 `status: "확인 불가"` 는 에러가 아님 → "정보 없음" 안내로 표시
+- `safety` 3형태: `[공식 규제]`(경고 강조) / 일반 / `안전성 확인 불가`(= 모른다, 안전 아님)
+- ②③ `summary` 의 "주의: " 줄은 분리해 강조 표시
+- ③ 요청은 compare 응답을 그대로 전달 (여분 필드는 서버가 무시)
+
+### 서버에 있지만 미연동
+
+| 엔드포인트 | 비고 |
+|---|---|
+| `POST /api/v1/recommendations` | RAG 추천 — 현재 추천 화면은 프론트 계산. 개편 시 전환 |
+| `POST /api/v1/bsti/submit` | 501 스텁 — BSTI 는 프론트 완결이라 불필요 (아래) |
+
+### BSTI 는 프론트 완결 (팀 결정)
+
+검사 문항 20 · 유형 16 · 성분 사전 34 전부 프론트가 들고 채점한다.
+서버 DB에 BSTI 매핑이 없으므로, 보고서 적합도는 성분 **이름 정확 일치**로
+프론트가 잇는다 (`bsti_name_matcher.dart`). 매칭 안 된 성분은 점수를
+지어내지 않고 "판단 정보 부족"으로 표시된다. 결과 저장은 프로필(서버)을 탄다.
 
 ## 폴더 구조
 
 ```
 lib/
-├─ main.dart               # 진입점 (Hive/Supabase 초기화)
-├─ app/                    # 앱 전역 (테마·라우터·루트 위젯)
-│  ├─ app.dart             # MaterialApp.router
-│  ├─ router/              # go_router 설정 + 하단탭 쉘
-│  └─ theme/               # 색상·타이포·에셋 경로
-├─ core/                   # 공용 인프라 (feature 간 공유)
-│  ├─ config/              # Env (dart-define)
-│  ├─ network/             # Supabase / Dio 클라이언트
+├─ app/
+│  ├─ router/              # go_router + AppShell (고정 헤더·푸터, ContentWidth)
+│  └─ theme/               # 색·타이포·에셋 경로
+├─ core/
+│  ├─ config/              # Env (--dart-define)
+│  ├─ network/             # dio (JWT 인터셉터) + Supabase 클라이언트
 │  ├─ storage/             # Hive + secure storage
-│  ├─ utils/               # 공용 유틸
-│  └─ widgets/             # 공통 위젯 (PixelBox 등)
-└─ features/               # 기능별 모듈
-   ├─ splash/              # 앱 시작 화면 (GIF 로고 + START)
-   ├─ onboarding/          # 온보딩 + 프로필(닉네임·나이·성별·피부고민)
-   ├─ auth/                # 로그인 (게스트 + 구글·카카오 OAuth)
-   ├─ home/                # 홈 (메뉴 그리드)
-   ├─ bsti/                # 피부 MBTI 검사 ★ 평탄 구조 (아래 설명)
-   ├─ my_shelf/            # 제품·성분 검색 → 상세 (내 화장대)
-   ├─ product/             # 제품 모델 + 저장소
-   ├─ ingredient/          # 성분 모델 + 저장소
-   ├─ recommendation/      # 맞춤 추천 (유형·고민·기피 반영)
+│  └─ widgets/             # PixelBox·PixelButton·ScreenTitle·AppDrawer 등
+└─ features/               # 기능별: data/(모델·저장소·프로바이더) + presentation/
+   ├─ auth/                # 로그인 (카카오·구글 실연동, 네이버 목업, 게스트)
+   ├─ onboarding/          # 프로필 등록·피부고민·완료 (서버 프로필 연동)
+   ├─ home/                # 홈 메뉴
+   ├─ bsti/                # 피부 MBTI ★ 평탄 구조 (데이터·엔진·화면 한곳)
+   ├─ my_shelf/            # 화장대·검색·제품/성분 상세 (①② 해설 연동)
+   ├─ compare/             # 다중 제품 비교 (비교표 + ③ 해설)
+   ├─ product/ ingredient/ # 모델 + 저장소 (API 연동 지점)
+   ├─ recommendation/      # 맞춤 추천 (유형·고민·기피 반영, 프론트 계산)
    ├─ report/              # 화장대 보고서 (적합도 + 부족 성분)
-   └─ profile/             # 마이페이지
-```
-
-**구조 규칙 — feature 폴더는 두 가지 패턴이 섞여 있습니다.**
-
-| 패턴 | 해당 feature | 설명 |
-|---|---|---|
-| 계층형 (기본) | bsti 외 전부 | `data/`(모델·저장소·프로바이더) + `presentation/`(화면·위젯) |
-| 평탄형 | **bsti** | 폴더 없이 파일을 한 곳에. 데이터·엔진·화면이 모두 `lib/features/bsti/` 바로 아래 |
-
-> BSTI는 관련 파일을 한 폴더에서 보려고 일부러 평탄하게 뒀습니다. 다른 feature는 계층형을 따르세요.
-
-## 백엔드 연동
-
-**프론트에는 데이터가 없습니다.** 화면은 저장소(repository)만 보고,
-저장소는 지금 빈 결과를 돌려줍니다. **저장소 메서드 본문만 채우면** 연동이 끝납니다.
-화면 코드는 손대지 않아도 됩니다.
-
-```bash
-grep -rn "TODO(BE)" lib/     # 연동 지점 전체 (엔드포인트 7개)
-```
-
-스키마·응답 예시·주의사항은 **[docs/api-contract.md](docs/api-contract.md)** 에 정리돼 있습니다.
-
-| 저장소 | 파일 |
-|---|---|
-| `ProductRepository` | `lib/features/product/data/product_repository.dart` |
-| `IngredientRepository` | `lib/features/ingredient/data/ingredient_repository.dart` |
-
-**⚠️ 놓치기 쉬운 것 2가지** (둘 다 에러 없이 조용히 잘못 동작합니다)
-
-1. **`getByIds` 는 요청한 id 순서를 지켜야 합니다.** 제품 상세가 앞 3개를
-   "대표성분"으로 쓰기 때문에, SQL `WHERE id IN (...)` 처럼 순서가 섞이면
-   대표성분이 조용히 바뀝니다.
-2. **`bsti_ingredient_id` 가 BSTI 기능의 연결고리입니다.** 이 값이 없으면
-   보고서 적합도와 추천이 조용히 빈 화면이 됩니다.
-   앱이 아는 id는 `kBstiIngredients` 의 34개입니다.
-
-> BSTI 데이터(성분 34 · 유형 16 · 문항 20)는 **프론트가 들고 있습니다.**
-> 백엔드가 내려줄 필요 없습니다. 서버는 제품·성분만 주면 되고,
-> 연결은 `bsti_ingredient_id` 하나로 이뤄집니다.
-
-## 테스트
-
-```bash
-flutter test        # 전체 (92개)
-```
-
-테스트는 전부 **`test/`** 아래에 `lib/` 구조를 그대로 미러링해 둡니다.
-(`flutter test` 가 자동으로 찾으므로 별도 등록이 필요 없습니다)
-
-| 위치 | 내용 |
-|---|---|
-| `test/features/bsti/` | BSTI 데이터 정합성·채점 엔진 (20개) |
-| `test/features/report/` | 보고서 적합도·부족 성분 추천 |
-| `test/features/recommendation/` | 유형·고민·기피 반영 검증 |
-| `test/smoke_screens_test.dart` | **9개 화면을 실제로 띄워** 예외·오버플로우 검증 |
-| `test/support/fake_repositories.dart` | 테스트용 가짜 저장소 + 샘플 데이터 |
-
-**샘플 데이터는 `test/` 안에만 둡니다.** `lib/` 에는 목데이터를 두지 않습니다.
-테스트에서 데이터가 필요하면 저장소 프로바이더를 override 하세요:
-
-```dart
-final container = ProviderContainer(overrides: fakeRepos);
+   └─ profile/             # 마이페이지 (로그아웃·탈퇴)
 ```
 
 ## 실행 방법
 
 ```bash
-cd cosmos_app
 flutter pub get
 
-# 실행 (Supabase 없이도 게스트 로그인으로 동작)
-flutter run
-
-# 웹으로 띄우기
+# 환경 값 없이 (게스트 + 빈 화면 데모)
 flutter run -d chrome
 
-# 같은 네트워크의 다른 기기에서도 열려면
-flutter run -d web-server --web-hostname 0.0.0.0 --web-port 8123
-#   → 이 PC: http://localhost:8123 / 다른 기기: http://<이 PC IP>:8123
-#   (방화벽에서 해당 포트를 열어야 할 수 있음)
-
-# Supabase / API / 소셜 로그인 연동 시
-cp dart_defines/dev.example.json dart_defines/dev.json   # 최초 1회, 값 채우기
-flutter run --dart-define-from-file=dart_defines/dev.json
+# 실서버 연동 (값은 팀 공유 — README of cosmos_server 참고)
+flutter run -d chrome \
+  --dart-define=SUPABASE_URL=https://xxxx.supabase.co \
+  --dart-define=SUPABASE_ANON_KEY=eyJhb... \
+  --dart-define=API_BASE_URL=http://localhost:8000 \
+  --dart-define=GOOGLE_WEB_CLIENT_ID=xxx.apps.googleusercontent.com
 ```
 
-소셜 로그인이 안 되면 콘솔 설정 문제다 — [docs/auth-setup.md](docs/auth-setup.md) 의
-체크리스트로 대조한다.
+- `API_BASE_URL` 비어 있으면 저장소는 호출 없이 빈 결과 (에러 화면 아님)
+- Supabase 값 없으면 카카오·구글 버튼은 "준비 중" 안내
+- 카카오 딥링크(`cosmos://login-callback`)는 AndroidManifest 와 일치해야 함
 
-## 현재 동작 범위
+앱 아이콘: `assets/icons/app/app_icon.png`(1024×1024) 넣고
+`dart run flutter_launcher_icons`.
 
-**백엔드 없이 지금 동작하는 것**
-
-- ✅ 스플래시(GIF 로고) → 온보딩 → 프로필 등록 → 로그인 시트 → 홈
-- ✅ **BSTI 검사 전 과정** — 20문항 설문 → 채점 → 결과(유형별 고양이·성분·자차).
-  앱이 자체 채점하며, 결과는 세션 동안 저장돼 재진입 시 바로 결과 화면으로 갑니다.
-  자세한 설계는 [docs/bsti-spec.md](docs/bsti-spec.md)
-- ✅ 게스트 로그인
-- ✅ 화장대에 담기 / 선호·기피 구분 (로컬 저장)
-
-**백엔드가 붙어야 채워지는 것** (지금은 빈 화면)
-
-- 🔲 제품·성분 검색 — `ProductRepository.search` / `IngredientRepository.search`
-- 🔲 맞춤 추천 — `ProductRepository.listAll`
-- 🔲 화장대 보고서 적합도·추천 — `bstiIdsByProducts` / `findByBstiIngredient`
-- 🔲 제품·성분 상세의 성분 목록 — `getByIds`
-
-**아직 구현 안 된 것**
-
-- 🔲 소셜 로그인 (구글·카카오) — 코드는 구현 완료, **콘솔 설정 검토 대기**.
-  `dart_defines/dev.json` 의 `GOOGLE_WEB_CLIENT_ID` 가 비어 있으면 구글 버튼은
-  "준비 중" 안내만 띄웁니다. 설정 절차는 [docs/auth-setup.md](docs/auth-setup.md).
-  네이버·애플은 v1 제외 (2026-07-07 결정)
-- 🔲 제품 이미지 — 실서비스는 제휴/직접 확보 이미지 필요
-
-## 다음 작업 (TODO)
+## 테스트
 
 ```bash
-grep -rn "TODO(BE)" lib/     # 백엔드 연동 지점
-grep -rn "TODO:" lib/        # 그 외 남은 작업
+flutter test        # 전체 (159개)
 ```
 
-1. `dart_defines/dev.json` — `GOOGLE_WEB_CLIENT_ID` 채우기 (나머지는 채워져 있음)
-2. `lib/features/product/data/product_repository.dart` — 제품 API 연동
-3. `lib/features/ingredient/data/ingredient_repository.dart` — 성분 API 연동
-4. `lib/features/auth/data/auth_repository.dart` — 소셜 로그인 SDK 연동
+| 위치 | 내용 |
+|---|---|
+| `test/smoke_screens_test.dart` | 12개 화면을 실제 렌더링 — 예외·오버플로우 검증 |
+| `test/features/bsti/` | BSTI 데이터 정합성·채점·이름 매칭 |
+| `test/features/product/` `ingredient/` | **명세서 예시 JSON 원문**으로 파싱 검증 |
+| `test/features/report/` `recommendation/` | 적합도·추천 규칙 |
+| `test/features/auth/` `onboarding/` | 로그인·프로필 (팀원 작성 포함) |
+| `test/support/fake_repositories.dart` | 가짜 저장소 — `ProviderContainer(overrides: fakeRepos)` |
+
+샘플 데이터는 `test/` 안에만 둔다. `lib/` 에 목데이터 없음
+(예외: 네이버 로그인 목업 — 의도된 것).
+
+## 남은 작업
+
+`grep -rn "TODO(BE)" lib/` 로 백엔드 요청 목록 확인.
+
+1. 제품 상세의 **전체 성분 이름 목록** — 엔드포인트 없음. 지금은 대표성분 3개만
+   행으로, 나머지는 "외 N개 분석됨" (성분 일괄 조회 생기면 풀림)
+2. 성분→제품 역조회 — 성분 상세 "포함 제품"·보고서 추천 제품이 빈 상태
+3. 추천 화면의 `POST /recommendations` 전환 (현재 프론트 계산)
+4. 마이페이지 찜한 제품·최근 본 제품·설정 (스텁)
