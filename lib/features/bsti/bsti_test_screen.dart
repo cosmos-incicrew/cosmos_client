@@ -8,6 +8,7 @@ import '../../app/theme/app_assets.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_text_styles.dart';
 import '../../core/widgets/pixel_box.dart';
+import '../../core/widgets/screen_title.dart';
 import '../onboarding/data/profile_store.dart';
 import 'bsti.dart';
 
@@ -67,20 +68,17 @@ class _BstiTestScreenState extends ConsumerState<BstiTestScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(
-        backgroundColor: AppColors.background,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, size: 18),
-          onPressed: _index == 0 ? () => context.pop() : _prev,
-        ),
-      ),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              ScreenTitle(
+                title: 'BSTI 검사',
+                // 첫 문항에선 화면 밖으로, 이후엔 이전 문항으로.
+                onBack: _index == 0 ? () => context.pop() : _prev,
+              ),
               // 위쪽 여백 → 진행 카운터(1/20)를 아래로.
               const SizedBox(height: 20),
               Center(

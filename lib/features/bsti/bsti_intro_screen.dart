@@ -5,6 +5,7 @@ import '../../app/theme/app_assets.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_text_styles.dart';
 import '../../core/widgets/start_button.dart';
+import '../../core/widgets/screen_title.dart';
 
 /// BSTI 소개 콘텐츠 (재사용 위젯).
 ///
@@ -104,21 +105,16 @@ class BstiIntroScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(
-        backgroundColor: AppColors.background,
-        elevation: 0,
-        automaticallyImplyLeading: false,
-        // 홈으로 나가기.
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, size: 18),
-          onPressed: () => context.go('/home'),
-        ),
-      ),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24),
           child: Column(
             children: [
+              ScreenTitle(
+                title: 'BSTI 검사',
+                onBack: () =>
+                    context.canPop() ? context.pop() : context.go('/home'),
+              ),
               const Spacer(flex: 2),
               // 설명 문구 → BSTI 위로. (키움)
               Text('25가지 문항으로 알아보는',

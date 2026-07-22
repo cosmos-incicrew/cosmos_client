@@ -6,6 +6,9 @@
 // ignore_for_file: depend_on_referenced_packages
 import 'package:cosmos_app/app/theme/app_theme.dart';
 import 'package:cosmos_app/features/bsti/bsti_result_screen.dart';
+import 'package:cosmos_app/features/compare/presentation/screens/product_compare_screen.dart';
+import 'package:cosmos_app/features/onboarding/presentation/screens/onboarding_done_screen.dart';
+import 'package:cosmos_app/features/onboarding/presentation/screens/skin_concern_screen.dart';
 import 'package:cosmos_app/features/onboarding/data/profile_store.dart';
 import 'package:cosmos_app/features/ingredient/data/models/ingredient.dart';
 import 'package:cosmos_app/features/my_shelf/data/shelf_preference.dart';
@@ -156,5 +159,25 @@ void main() {
     expect(find.text('내 화장대 만들러 가기'), findsOneWidget);
     expect(find.text('홈으로'), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('제품 비교 — 데이터 없어도 안 터진다', (tester) async {
+    await show(tester, const ProductCompareScreen());
+    expect(tester.takeException(), isNull);
+    // 2개 미만이면 비교하기가 비활성이어야 한다.
+    expect(find.text('비교하기'), findsOneWidget);
+  });
+
+  testWidgets('피부고민 선택 — 칩 8개가 뜨고 안 터진다', (tester) async {
+    await show(tester, const SkinConcernScreen());
+    expect(tester.takeException(), isNull);
+    expect(find.text('모공'), findsOneWidget);
+    expect(find.text('미백'), findsOneWidget);
+  });
+
+  testWidgets('온보딩 완료 — 두 동선이 뜨고 안 터진다', (tester) async {
+    await show(tester, const OnboardingDoneScreen());
+    expect(tester.takeException(), isNull);
+    expect(find.text('BSTI 검사 하러가기'), findsOneWidget);
   });
 }

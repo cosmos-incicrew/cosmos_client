@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../app/theme/app_assets.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_text_styles.dart';
+import '../../core/widgets/screen_title.dart';
 import '../../core/widgets/pixel_box.dart';
 import 'bsti.dart';
 
@@ -25,33 +26,21 @@ class BstiResultScreen extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(
-        backgroundColor: AppColors.background,
-        elevation: 0,
-        automaticallyImplyLeading: false,
-        // 재검사 — 결과를 버리고 설문을 처음부터 다시.
-        leading: IconButton(
-          icon: const Icon(Icons.refresh, color: AppColors.textPrimary),
-          iconSize: 26,
-          tooltip: '재검사',
-          onPressed: () => _retest(context),
-        ),
-        // 긴 한글 섞인 제목은 Pretendard로 (갈무리 픽셀 폰트는 깨져 보임).
-        title: const Text('BSTI 결과', style: AppTextStyles.title),
-        centerTitle: true,
-        // 홈으로 나가기.
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.home_outlined, color: AppColors.textPrimary),
-            iconSize: 28,
-            onPressed: () => context.go('/home'),
-          ),
-          const SizedBox(width: 4),
-        ],
-      ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(24, 52, 24, 32),
         children: [
+          ScreenTitle(
+            title: 'BSTI 결과',
+            onBack: () =>
+                context.canPop() ? context.pop() : context.go('/home'),
+            // 재검사 — 결과를 버리고 설문을 처음부터 다시.
+            trailing: IconButton(
+              icon: const Icon(Icons.refresh, color: AppColors.textPrimary),
+              iconSize: 24,
+              tooltip: '재검사',
+              onPressed: () => _retest(context),
+            ),
+          ),
           // 헤더: [왼쪽 고양이] + [오른쪽 "나의 피부타입은" · 코드]
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,

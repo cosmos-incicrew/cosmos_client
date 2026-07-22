@@ -23,6 +23,7 @@ class AppAssets {
 
   // 소셜 로그인 정품 로고 (PNG). 파일을 assets/icons/social/ 에 넣으면 표시됨.
   static const String kakao = '$_social/kakao.png';
+  static const String naver = '$_social/naver.png';
   static const String google = '$_social/google.png';
   static const String apple = '$_social/apple.png';
 
