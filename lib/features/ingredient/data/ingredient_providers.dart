@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/dio_client.dart';
 import 'ingredient_repository.dart';
 import 'models/ingredient.dart';
+import 'models/ingredient_insight.dart';
 
 /// 성분 저장소. 테스트에서는 이 프로바이더를 override 해서 가짜를 넣는다.
 final ingredientRepositoryProvider = Provider<IngredientRepository>((ref) {
@@ -33,3 +34,9 @@ final ingredientsByIdsProvider =
 
 /// [ingredientsByIdsProvider] 용 캐시 키. 순서를 보존한다(정렬하지 않는다).
 String ingredientIdsKey(List<int> ids) => ids.join(',');
+
+/// ① 개별 성분 해설. 성분별 캐시 — 토글을 다시 열어도 재요청하지 않는다.
+final ingredientDetailProvider =
+    FutureProvider.family<IngredientDetail, int>((ref, ingredientId) async {
+  return ref.watch(ingredientRepositoryProvider).getDetail(ingredientId);
+});

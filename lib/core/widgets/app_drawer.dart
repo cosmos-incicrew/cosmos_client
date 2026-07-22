@@ -27,6 +27,8 @@ class AppDrawer extends StatelessWidget {
                 () => context.go('/shelf')),
             _item(context, Icons.recommend_outlined, '맞춤 제품추천',
                 () => context.push('/recommendation')),
+            _item(context, Icons.compare_arrows, '제품 비교',
+                () => context.push('/compare')),
             _item(context, Icons.person_outline, '마이페이지',
                 () => context.go('/profile')),
           ],

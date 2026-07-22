@@ -4,8 +4,8 @@ import 'package:go_router/go_router.dart';
 import '../../../../app/theme/app_assets.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_text_styles.dart';
-import '../../../../core/widgets/app_drawer.dart';
 import '../../../../core/widgets/pixel_box.dart';
+import '../../../../core/widgets/pixel_button.dart';
 
 /// 홈 화면 — 기능 허브. (피그마 가안 레이아웃)
 ///
@@ -18,35 +18,8 @@ class HomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 헤더(로고)·서랍·푸터는 쉘(AppShell)이 고정으로 가진다.
     return Scaffold(
-      appBar: AppBar(
-        // 좌: 햄버거 메뉴 (Builder로 감싸 Scaffold context 확보)
-        leading: Builder(
-          builder: (ctx) => IconButton(
-            icon: const Icon(Icons.menu, color: AppColors.textPrimary),
-            iconSize: 32,
-            onPressed: () => Scaffold.of(ctx).openDrawer(),
-          ),
-        ),
-        leadingWidth: 64,
-        // 중앙: COSMOS 워드마크 로고 (위 여백을 줘서 답답하지 않게)
-        title: Padding(
-          padding: const EdgeInsets.only(top: 16),
-          child: Image.asset(AppAssets.logoWordmark, height: 52),
-        ),
-        centerTitle: true,
-        // 우: 마이페이지
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.person_outline, color: AppColors.textPrimary),
-            iconSize: 32,
-            onPressed: () => context.go('/profile'),
-          ),
-          const SizedBox(width: 8),
-        ],
-        toolbarHeight: 96,
-      ),
-      drawer: const AppDrawer(),
       // 한 화면에 들어오게 배치하되, 작은 화면에선 안전하게 스크롤.
       // IntrinsicHeight — 스크롤 안에서도 Spacer가 동작하도록 높이를 확정한다.
       body: SafeArea(
@@ -66,6 +39,13 @@ class HomeScreen extends StatelessWidget {
                       // 배너와 메뉴 사이는 붙이고, 남는 공간은 아래로 몬다.
                       const SizedBox(height: 16),
                       _menuGrid(context),
+                      const SizedBox(height: 14),
+                      // 다중 제품 비교 — 성분 구성 차이 + 해설.
+                      PixelButton(
+                        label: '제품 비교하기',
+                        icon: Icons.compare_arrows,
+                        onPressed: () => context.push('/compare'),
+                      ),
                       const Spacer(flex: 3),
                     ],
                   ),

@@ -3,9 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../app/theme/app_colors.dart';
+import '../../../../core/widgets/screen_title.dart';
 import '../../../../app/theme/app_text_styles.dart';
 import '../../../../core/widgets/pixel_box.dart';
-import '../../../my_shelf/presentation/screens/product_detail_screen.dart';
 import '../../../product/data/models/product.dart';
 import '../../data/recommendation_provider.dart';
 
@@ -34,15 +34,6 @@ class RecommendationScreen extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(
-        backgroundColor: AppColors.background,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, size: 18),
-          onPressed: () => context.go('/home'),
-        ),
-        title: const Text('맞춤 추천', style: AppTextStyles.title),
-      ),
       body: SafeArea(
         child: async.when(
           loading: () => const Center(child: CircularProgressIndicator()),
@@ -57,8 +48,14 @@ class RecommendationScreen extends ConsumerWidget {
     final grouped = result.byCategory;
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
+      padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
       children: [
+        ScreenTitle(
+          title: '맞춤 추천',
+          onBack: () =>
+              context.canPop() ? context.pop() : context.go('/home'),
+        ),
+        const SizedBox(height: 8),
         _header(result.basis),
         const SizedBox(height: 24),
         if (grouped.isEmpty)
@@ -147,11 +144,7 @@ class RecommendationScreen extends ConsumerWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: GestureDetector(
-        onTap: () {
-          Navigator.of(context).push(MaterialPageRoute(
-            builder: (_) => ProductDetailScreen(product: p),
-          ));
-        },
+        onTap: () => context.push('/shelf/product', extra: p),
         behavior: HitTestBehavior.opaque,
         child: PixelBox(
           borderColor: AppColors.outline,

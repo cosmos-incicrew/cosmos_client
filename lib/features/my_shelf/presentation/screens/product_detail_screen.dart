@@ -1,18 +1,29 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_text_styles.dart';
 import '../../../../core/widgets/pixel_box.dart';
+import '../../../../core/widgets/screen_title.dart';
 import '../../../bsti/bsti.dart';
-import '../../../ingredient/data/ingredient_providers.dart';
-import '../../../ingredient/data/models/ingredient.dart';
+import '../../../bsti/bsti_name_matcher.dart';
+import '../../../ingredient/data/models/ingredient_insight.dart';
 import '../../../product/data/models/product.dart';
+import '../../../product/data/product_providers.dart';
+import '../widgets/ingredient_detail_sheet.dart';
 
-/// 제품 상세 화면 (검색 결과에서 진입).
+/// 제품 상세 화면 (명세 "화면 매핑" 기준).
 ///
-/// 시안 구성: 제품 이미지 → 제품명 → 대표성분(칩) → 권장 피부타입 요약 →
-/// 성분 자세히 보기. 성분은 [Product.ingredientIds]로 저장소에서 조회한다.
+///  제품명            ← 검색 결과 (Product)
+///  대표성분 Top-3     ← ② product-summary top_ingredients
+///  제품 해설 요약      ← ② summary ("주의:" 줄은 분리해 강조)
+///  권장 피부타입      ← 대표성분 이름을 BSTI 사전과 매칭 (프론트 계산)
+///  성분 목록          ← 검색엔진 ingredient_ids (개수) + 대표성분 행
+///    └ 클릭 시        ← ① detail 바텀시트
+///
+/// TODO(BE): 전체 성분 **이름** 목록 엔드포인트가 없다. 지금은 이름이 있는
+/// 대표성분만 행으로 보여주고 나머지는 개수로 안내한다.
 class ProductDetailScreen extends ConsumerWidget {
   const ProductDetailScreen({super.key, required this.product});
 
@@ -20,145 +31,219 @@ class ProductDetailScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final async = ref.watch(
-      ingredientsByIdsProvider(ingredientIdsKey(product.ingredientIds)),
-    );
+    final async = ref.watch(productInsightProvider(product.id));
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(
-        backgroundColor: AppColors.background,
-        elevation: 0,
-        title: const Text('제품 상세', style: AppTextStyles.title),
-      ),
-      body: async.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (_, __) => _errorView(),
-        data: (ingredients) => _body(ingredients),
+      body: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: ScreenTitle(
+                title: '제품 상세',
+                onBack: () =>
+                    context.canPop() ? context.pop() : context.go('/shelf'),
+              ),
+            ),
+            Expanded(
+              child: async.when(
+                loading: () =>
+                    const Center(child: CircularProgressIndicator()),
+                error: (_, __) => _message('제품 정보를 불러오지 못했어요'),
+                data: (insight) => _body(context, insight),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  /// 성분을 못 불러왔을 때. "성분 없음"과 구분되게 보여준다.
-  Widget _errorView() => Center(
+  Widget _message(String text) => Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
-          child: Text('성분 정보를 불러오지 못했어요',
+          child: Text(text,
               textAlign: TextAlign.center,
-              style: AppTextStyles.body
-                  .copyWith(color: AppColors.textSecondary)),
+              style:
+                  AppTextStyles.body.copyWith(color: AppColors.textSecondary)),
         ),
       );
 
-  Widget _body(List<Ingredient> ingredients) {
-    // 대표성분 = 앞 3개 (저장소가 요청 순서를 지켜준다).
-    final key = ingredients.take(3).toList();
-    // 성분들을 BSTI 성분 id로 변환 → 실제 권장 유형 매칭.
-    final bstiIds =
-        ingredients.map((i) => i.bstiIngredientId).whereType<String>();
-    final matchedType = BstiEngine.matchTypeByIngredients(bstiIds);
+  Widget _body(
+    BuildContext context,
+    ({List<int> ingredientIds, ProductSummary summary}) insight,
+  ) {
+    final summary = insight.summary;
+    final tops = summary.topIngredients;
+
+    // 대표성분 이름 → BSTI 사전 매칭 → 권장 피부타입 (프론트 계산).
+    final bstiIds = [
+      for (final t in tops)
+        if (bstiIdForNames(nameKr: t.name) != null)
+          bstiIdForNames(nameKr: t.name)!,
+    ];
+    final matchedType =
+        bstiIds.isEmpty ? null : BstiEngine.matchTypeByIngredients(bstiIds);
 
     return ListView(
-        padding: const EdgeInsets.fromLTRB(24, 60, 24, 32),
-        children: [
-          // 제품 이미지 (없으면 플레이스홀더).
-          Center(
-            child: Container(
-              width: 150,
-              height: 190,
-              decoration: BoxDecoration(
-                color: AppColors.primaryLight.withValues(alpha: 0.35),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              clipBehavior: Clip.antiAlias,
-              // 로컬 에셋 우선 → 없으면 네트워크 → 둘 다 없으면 플레이스홀더.
-              child: product.imageAsset != null
-                  ? Image.asset(product.imageAsset!,
-                      fit: BoxFit.contain,
-                      errorBuilder: (_, __, ___) => _imgPlaceholder())
-                  : product.imageUrl != null
-                      ? Image.network(product.imageUrl!,
-                          fit: BoxFit.contain,
-                          errorBuilder: (_, __, ___) => _imgPlaceholder())
-                      : _imgPlaceholder(),
+      padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
+      children: [
+        // 제품 이미지 (없으면 플레이스홀더).
+        Center(
+          child: Container(
+            width: 150,
+            height: 190,
+            decoration: BoxDecoration(
+              color: AppColors.primaryLight.withValues(alpha: 0.35),
+              borderRadius: BorderRadius.circular(16),
             ),
+            clipBehavior: Clip.antiAlias,
+            child: product.imageUrl != null
+                ? Image.network(product.imageUrl!,
+                    fit: BoxFit.contain,
+                    errorBuilder: (_, __, ___) => _imgPlaceholder())
+                : _imgPlaceholder(),
           ),
-          const SizedBox(height: 20),
+        ),
+        const SizedBox(height: 20),
 
-          // 제품명.
-          Text('제품명',
+        // 제품명.
+        Text('제품명',
+            style:
+                AppTextStyles.caption.copyWith(color: AppColors.textSecondary)),
+        const SizedBox(height: 4),
+        Text(product.name, style: AppTextStyles.title),
+        if (product.brand != null) ...[
+          const SizedBox(height: 2),
+          Text(product.brand!,
               style: AppTextStyles.caption
                   .copyWith(color: AppColors.textSecondary)),
-          const SizedBox(height: 4),
-          Text(product.name, style: AppTextStyles.title),
-          if (product.brand != null) ...[
-            const SizedBox(height: 2),
-            Text(product.brand!,
-                style: AppTextStyles.caption
-                    .copyWith(color: AppColors.textSecondary)),
-          ],
-          const SizedBox(height: 20),
+        ],
+        const SizedBox(height: 20),
 
-          // 대표성분 (칩).
-          Text('대표성분',
-              style: AppTextStyles.body.copyWith(fontWeight: FontWeight.w800)),
-          const SizedBox(height: 8),
+        // 대표성분 Top-3 (② top_ingredients) — 누르면 ① 해설.
+        Text('대표성분',
+            style: AppTextStyles.body.copyWith(fontWeight: FontWeight.w800)),
+        const SizedBox(height: 8),
+        if (tops.isEmpty)
+          Text('성분 정보가 아직 없어요',
+              style: AppTextStyles.caption
+                  .copyWith(color: AppColors.textSecondary))
+        else
           Wrap(
             spacing: 8,
             runSpacing: 8,
             children: [
-              for (final i in key) _chip(i.displayName),
+              for (final t in tops)
+                GestureDetector(
+                  onTap: () => IngredientDetailSheet.show(
+                    context,
+                    ingredientId: t.ingredientId,
+                    fallbackName: t.name,
+                  ),
+                  child: _chip(t.name ?? '성분 ${t.ingredientId}'),
+                ),
             ],
           ),
-          const SizedBox(height: 24),
+        const SizedBox(height: 24),
 
-          // 요약 박스.
-          PixelBox(
-            borderColor: AppColors.primary,
-            fillColor: AppColors.primaryLight.withValues(alpha: 0.35),
-            pixel: 6,
-            borderWidth: 2.5,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
-            child: SizedBox(
-              width: double.infinity,
-              child: Text(
-                _summary(key),
-                style: AppTextStyles.body.copyWith(height: 1.6),
+        // 제품 해설 요약 (② summary). "주의:" 줄은 분리해 강조.
+        _summaryBox(summary),
+        const SizedBox(height: 24),
+
+        // 권장 피부타입 — 대표성분을 BSTI 사전과 매칭한 결과 (프론트 계산).
+        Text('권장 피부타입',
+            style: AppTextStyles.body.copyWith(fontWeight: FontWeight.w800)),
+        const SizedBox(height: 8),
+        if (matchedType != null)
+          Row(
+            children: [
+              Text(matchedType.code,
+                  style: AppTextStyles.pointLg(color: AppColors.primary)),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(matchedType.personaName,
+                    style: AppTextStyles.body
+                        .copyWith(fontWeight: FontWeight.w700)),
               ),
+            ],
+          )
+        else
+          Text('매칭되는 유형 정보가 없어요.',
+              style: AppTextStyles.caption
+                  .copyWith(color: AppColors.textSecondary)),
+        const SizedBox(height: 28),
+
+        // 성분 목록 — 이름이 있는 대표성분은 행으로, 나머지는 개수로.
+        Text('성분 자세히 보기',
+            style: AppTextStyles.body.copyWith(fontWeight: FontWeight.w800)),
+        const SizedBox(height: 10),
+        for (final t in tops)
+          _ingredientRow(context, t),
+        if (insight.ingredientIds.length > tops.length)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              // TODO(BE): 전체 성분 이름 엔드포인트가 생기면 전부 나열한다.
+              '외 ${insight.ingredientIds.length - tops.length}개 성분 분석됨',
+              style: AppTextStyles.caption
+                  .copyWith(color: AppColors.textSecondary),
             ),
           ),
-          const SizedBox(height: 24),
+      ],
+    );
+  }
 
-          // 권장 피부타입 — 성분 구성으로 실제 매칭한 BSTI 유형(코드+페르소나).
-          Text('권장 피부타입',
-              style: AppTextStyles.body.copyWith(fontWeight: FontWeight.w800)),
-          const SizedBox(height: 8),
-          if (matchedType != null) ...[
+  /// ② summary 박스. "확인 불가" / 주의 줄 / 본문을 구분해 그린다.
+  Widget _summaryBox(ProductSummary summary) {
+    if (summary.status == InsightStatus.unavailable ||
+        summary.summary == null) {
+      return PixelBox(
+        borderColor: AppColors.outline,
+        pixel: 6,
+        borderWidth: 2,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+        child: Text(
+          '제품 해설이 아직 준비되지 않았어요.',
+          style: AppTextStyles.body
+              .copyWith(color: AppColors.textSecondary, height: 1.5),
+        ),
+      );
+    }
+
+    final split = splitCaution(summary.summary!);
+    return PixelBox(
+      borderColor: AppColors.primary,
+      fillColor: AppColors.primaryLight.withValues(alpha: 0.35),
+      pixel: 6,
+      borderWidth: 2.5,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(split.body, style: AppTextStyles.body.copyWith(height: 1.6)),
+          if (split.caution != null) ...[
+            const SizedBox(height: 12),
             Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(matchedType.code,
-                    style: AppTextStyles.pointLg(color: AppColors.primary)),
-                const SizedBox(width: 12),
+                const Icon(Icons.warning_amber_rounded,
+                    size: 18, color: AppColors.danger),
+                const SizedBox(width: 6),
                 Expanded(
-                  child: Text(matchedType.personaName,
-                      style: AppTextStyles.body
-                          .copyWith(fontWeight: FontWeight.w700)),
+                  child: Text(split.caution!,
+                      style: AppTextStyles.caption.copyWith(
+                          color: AppColors.danger,
+                          fontWeight: FontWeight.w700,
+                          height: 1.5)),
                 ),
               ],
             ),
-          ] else
-            Text('매칭되는 유형 정보가 없어요.',
-                style: AppTextStyles.caption
-                    .copyWith(color: AppColors.textSecondary)),
-          const SizedBox(height: 28),
-
-          // 성분 자세히 보기.
-          Text('성분 자세히 보기',
-              style: AppTextStyles.body.copyWith(fontWeight: FontWeight.w800)),
-          const SizedBox(height: 10),
-          for (final i in ingredients) _ingredientRow(i),
+          ],
         ],
+      ),
     );
   }
 
@@ -172,43 +257,35 @@ class ProductDetailScreen extends ConsumerWidget {
         borderWidth: 2,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
         child: Text(label,
-            style: AppTextStyles.caption
-                .copyWith(color: AppColors.textPrimary)),
+            style:
+                AppTextStyles.caption.copyWith(color: AppColors.textPrimary)),
       );
 
-  String _summary(List<Ingredient> key) {
-    if (key.isEmpty) return '등록된 성분 정보가 없어요.';
-    final types = key
-        .map((i) => i.recommendedSkinType)
-        .whereType<String>()
-        .toSet()
-        .join(', ');
-    final names = key.map((i) => i.displayName).join(', ');
-    // 강제 줄바꿈 없이 한 문단으로 (넘치면 자연 줄바꿈).
-    final base = '$names 등이 함유된 제품이에요.';
-    return types.isEmpty ? base : '$base $types 피부에 잘 맞습니다.';
-  }
-
-  Widget _ingredientRow(Ingredient i) => Padding(
+  Widget _ingredientRow(BuildContext context, TopIngredient t) => Padding(
         padding: const EdgeInsets.only(bottom: 10),
-        child: PixelBox(
-          borderColor: AppColors.outline,
-          pixel: 5,
-          borderWidth: 2,
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(i.displayName,
-                  style: AppTextStyles.body
-                      .copyWith(fontWeight: FontWeight.w700)),
-              if (i.efficacy != null) ...[
-                const SizedBox(height: 4),
-                Text(i.efficacy!,
-                    style: AppTextStyles.caption
-                        .copyWith(color: AppColors.textSecondary, height: 1.4)),
+        child: GestureDetector(
+          onTap: () => IngredientDetailSheet.show(
+            context,
+            ingredientId: t.ingredientId,
+            fallbackName: t.name,
+          ),
+          behavior: HitTestBehavior.opaque,
+          child: PixelBox(
+            borderColor: AppColors.outline,
+            pixel: 5,
+            borderWidth: 2,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(t.name ?? '성분 ${t.ingredientId}',
+                      style: AppTextStyles.body
+                          .copyWith(fontWeight: FontWeight.w700)),
+                ),
+                const Icon(Icons.expand_more,
+                    color: AppColors.textSecondary, size: 20),
               ],
-            ],
+            ),
           ),
         ),
       );
