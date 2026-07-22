@@ -42,7 +42,7 @@ lib/
 └─ features/               # 기능별 모듈
    ├─ splash/              # 앱 시작 화면 (GIF 로고 + START)
    ├─ onboarding/          # 온보딩 + 프로필(닉네임·나이·성별·피부고민)
-   ├─ auth/                # 로그인 (게스트 동작, 소셜은 미구현)
+   ├─ auth/                # 로그인 (게스트 + 구글·카카오 OAuth)
    ├─ home/                # 홈 (메뉴 그리드)
    ├─ bsti/                # 피부 MBTI 검사 ★ 평탄 구조 (아래 설명)
    ├─ my_shelf/            # 제품·성분 검색 → 상세 (내 화장대)
@@ -133,12 +133,13 @@ flutter run -d web-server --web-hostname 0.0.0.0 --web-port 8123
 #   → 이 PC: http://localhost:8123 / 다른 기기: http://<이 PC IP>:8123
 #   (방화벽에서 해당 포트를 열어야 할 수 있음)
 
-# Supabase / API 연동 시 (값 채운 뒤):
-flutter run \
-  --dart-define=SUPABASE_URL=https://xxxx.supabase.co \
-  --dart-define=SUPABASE_ANON_KEY=eyJhbG... \
-  --dart-define=API_BASE_URL=https://api.yourservice.com
+# Supabase / API / 소셜 로그인 연동 시
+cp dart_defines/dev.example.json dart_defines/dev.json   # 최초 1회, 값 채우기
+flutter run --dart-define-from-file=dart_defines/dev.json
 ```
+
+소셜 로그인이 안 되면 콘솔 설정 문제다 — [docs/auth-setup.md](docs/auth-setup.md) 의
+체크리스트로 대조한다.
 
 ## 현재 동작 범위
 
@@ -160,8 +161,10 @@ flutter run \
 
 **아직 구현 안 된 것**
 
-- 🔲 소셜 로그인 (카카오·네이버·구글·애플) — 전부 `UnimplementedError`.
-  버튼을 누르면 크래시 대신 "준비 중" 안내가 뜹니다. SDK 연동 필요
+- 🔲 소셜 로그인 (구글·카카오) — 코드는 구현 완료, **콘솔 설정 검토 대기**.
+  `dart_defines/dev.json` 의 `GOOGLE_WEB_CLIENT_ID` 가 비어 있으면 구글 버튼은
+  "준비 중" 안내만 띄웁니다. 설정 절차는 [docs/auth-setup.md](docs/auth-setup.md).
+  네이버·애플은 v1 제외 (2026-07-07 결정)
 - 🔲 제품 이미지 — 실서비스는 제휴/직접 확보 이미지 필요
 
 ## 다음 작업 (TODO)
@@ -171,7 +174,7 @@ grep -rn "TODO(BE)" lib/     # 백엔드 연동 지점
 grep -rn "TODO:" lib/        # 그 외 남은 작업
 ```
 
-1. `lib/core/config/env.dart` — Supabase URL/Key, API 주소 채우기
+1. `dart_defines/dev.json` — `GOOGLE_WEB_CLIENT_ID` 채우기 (나머지는 채워져 있음)
 2. `lib/features/product/data/product_repository.dart` — 제품 API 연동
 3. `lib/features/ingredient/data/ingredient_repository.dart` — 성분 API 연동
 4. `lib/features/auth/data/auth_repository.dart` — 소셜 로그인 SDK 연동

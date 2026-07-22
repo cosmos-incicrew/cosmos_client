@@ -19,6 +19,9 @@ ios/Flutter/flutter_export_environment.sh
 # 민감 정보 (dart-define / env)
 *.env
 env.local.dart
+# 실제 키가 든 dart-define 파일. example 만 커밋한다.
+dart_defines/*.json
+!dart_defines/*.example.json
 
 # OS
 .DS_Store
@@ -26,3 +29,4 @@ Thumbs.db
 
 # 로컬 도구 설정 (개인 환경)
 .claude/
+.omc
