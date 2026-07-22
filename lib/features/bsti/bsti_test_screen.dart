@@ -8,6 +8,7 @@ import '../../app/theme/app_assets.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_text_styles.dart';
 import '../../core/widgets/pixel_box.dart';
+import '../../core/widgets/screen_title.dart';
 import '../onboarding/data/profile_store.dart';
 import 'bsti.dart';
 
@@ -67,20 +68,17 @@ class _BstiTestScreenState extends ConsumerState<BstiTestScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(
-        backgroundColor: AppColors.background,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, size: 18),
-          onPressed: _index == 0 ? () => context.pop() : _prev,
-        ),
-      ),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              ScreenTitle(
+                title: 'BSTI 검사',
+                // 첫 문항에선 화면 밖으로, 이후엔 이전 문항으로.
+                onBack: _index == 0 ? () => context.pop() : _prev,
+              ),
               // 위쪽 여백 → 진행 카운터(1/20)를 아래로.
               const SizedBox(height: 20),
               Center(
@@ -105,7 +103,7 @@ class _BstiTestScreenState extends ConsumerState<BstiTestScreen> {
               Expanded(
                 child: ListView.separated(
                   itemCount: _q.options.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 12),
+                  separatorBuilder: (_, __) => const SizedBox(height: 8),
                   itemBuilder: (_, i) {
                     final opt = _q.options[i];
                     final isSelected = selected == opt.score;
@@ -213,7 +211,7 @@ class _OptionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 계단식 픽셀 테두리 박스. 선택 시 포인트색 테두리 + 픽셀 그림자.
+    // 평면(비트맵풍) 픽셀 테두리 박스 — 그림자 없이 납작하게, 크기도 작게.
     final borderColor = selected ? AppColors.primary : AppColors.outline;
     return GestureDetector(
       onTap: onTap,
@@ -223,25 +221,24 @@ class _OptionTile extends StatelessWidget {
         fillColor: selected
             ? AppColors.primaryLight.withValues(alpha: 0.35)
             : AppColors.surface,
-        shadowColor: selected ? AppColors.primary : null,
-        pixel: 6,
-        borderWidth: 3,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        pixel: 4,
+        borderWidth: 2,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         child: Row(
           children: [
             // 선택 표시 — 각진 픽셀 체크박스.
             Container(
-              width: 20,
-              height: 20,
+              width: 16,
+              height: 16,
               decoration: BoxDecoration(
                 border: Border.all(color: borderColor, width: 2),
                 color: selected ? AppColors.primary : Colors.transparent,
               ),
               child: selected
-                  ? const Icon(Icons.check, size: 14, color: Colors.white)
+                  ? const Icon(Icons.check, size: 11, color: Colors.white)
                   : null,
             ),
-            const SizedBox(width: 14),
+            const SizedBox(width: 10),
             Expanded(
               child: Text(
                 label,

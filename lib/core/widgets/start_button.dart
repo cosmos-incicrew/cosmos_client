@@ -19,20 +19,26 @@ class StartButton extends StatefulWidget {
 
 class _StartButtonState extends State<StartButton> {
   bool _pressed = false;
+  bool _hovered = false;
 
   void _set(bool v) => setState(() => _pressed = v);
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: GestureDetector(
       onTapDown: (_) => _set(true),
       onTapUp: (_) => _set(false),
       onTapCancel: () => _set(false),
       onTap: widget.onPressed,
-      // 누르면 살짝 작아지는 느낌만.
+      // 누르려고 다가가면(호버) 살짝 커지고, 누르면 눌린다.
       child: AnimatedScale(
-        scale: _pressed ? 0.94 : 1.0,
-        duration: const Duration(milliseconds: 80),
+        scale: _pressed ? 0.94 : (_hovered ? 1.06 : 1.0),
+        duration: const Duration(milliseconds: 100),
+        curve: Curves.easeOut,
         child: Image.asset(
           AppAssets.startButton,
           fit: BoxFit.contain,
@@ -44,6 +50,7 @@ class _StartButtonState extends State<StartButton> {
                 style: AppTextStyles.pointSm(color: Colors.white)),
           ),
         ),
+      ),
       ),
     );
   }

@@ -1,14 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:go_router/go_router.dart';
+
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_text_styles.dart';
+import '../../../../core/policy/display_policy.dart';
 import '../../../../core/widgets/pixel_box.dart';
+import '../../../../core/widgets/section_label.dart';
 import '../../../bsti/bsti.dart';
 import '../../../ingredient/data/models/ingredient.dart';
 import '../../../product/data/models/product.dart';
+import '../../../ingredient/data/ingredient_providers.dart';
+import '../../../ingredient/data/models/ingredient_insight.dart';
 import '../../../product/data/product_providers.dart';
-import 'product_detail_screen.dart';
+import '../../../../core/widgets/screen_title.dart';
 
 /// 성분 상세 화면 (검색 결과에서 성분 진입).
 ///
@@ -31,14 +37,16 @@ class IngredientDetailScreen extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(
-        backgroundColor: AppColors.background,
-        elevation: 0,
-        title: const Text('성분 상세', style: AppTextStyles.title),
-      ),
+
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(24, 60, 24, 32),
+        padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
         children: [
+          ScreenTitle(
+            title: '성분 상세',
+            onBack: () =>
+                context.canPop() ? context.pop() : context.go('/shelf'),
+          ),
+          const SizedBox(height: 8),
           // 검색 성분 — 박스 없이 큰 글씨로.
           Text('검색 성분',
               style: AppTextStyles.caption
@@ -69,10 +77,15 @@ class IngredientDetailScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 28),
 
+          // 성분 해설 (① GET /ingredients/{id}/detail).
+          const SectionLabel('성분 해설'),
+          const SizedBox(height: 4),
+          _detailSection(ref),
+          const SizedBox(height: 28),
+
           // 권장 피부타입 (코드 + 페르소나).
-          Text('권장 피부타입',
-              style: AppTextStyles.body.copyWith(fontWeight: FontWeight.w800)),
-          const SizedBox(height: 8),
+          const SectionLabel('권장 피부타입'),
+          const SizedBox(height: 4),
           if (type != null) ...[
             Text(type.code,
                 style: AppTextStyles.pointLg(color: AppColors.primary)),
@@ -86,9 +99,8 @@ class IngredientDetailScreen extends ConsumerWidget {
           const SizedBox(height: 28),
 
           // 성분 포함 제품.
-          Text('성분 포함 제품',
-              style: AppTextStyles.body.copyWith(fontWeight: FontWeight.w800)),
-          const SizedBox(height: 10),
+          const SectionLabel('성분 포함 제품'),
+          const SizedBox(height: 6),
           // 로딩·실패·없음을 구분해서 보여준다.
           ...productsAsync.when(
             loading: () => [
@@ -104,7 +116,8 @@ class IngredientDetailScreen extends ConsumerWidget {
             ],
             data: (products) => products.isEmpty
                 ? [
-                    Text('등록된 제품이 없어요.',
+                    // TODO(BE): 성분→제품 역조회 API 가 아직 없어 항상 빈 결과다.
+                    Text('성분으로 제품을 찾는 기능은 준비 중이에요.',
                         style: AppTextStyles.caption
                             .copyWith(color: AppColors.textSecondary)),
                   ]
@@ -121,11 +134,7 @@ class IngredientDetailScreen extends ConsumerWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: GestureDetector(
-        onTap: () {
-          Navigator.of(context).push(MaterialPageRoute(
-            builder: (_) => ProductDetailScreen(product: p),
-          ));
-        },
+        onTap: () => context.push('/shelf/product', extra: p),
         behavior: HitTestBehavior.opaque,
         child: PixelBox(
           borderColor: AppColors.outline,
@@ -171,6 +180,82 @@ class IngredientDetailScreen extends ConsumerWidget {
           ),
         ),
       ),
+    );
+  }
+
+  /// ① 해설 — 확인불가/safety 3형태를 명세 규칙대로 그린다.
+  Widget _detailSection(WidgetRef ref) {
+    final async = ref.watch(ingredientDetailProvider(ingredient.id));
+    return async.when(
+      loading: () => const Padding(
+        padding: EdgeInsets.symmetric(vertical: 12),
+        child: Center(child: CircularProgressIndicator()),
+      ),
+      error: (_, __) => Text('해설을 불러오지 못했어요. 잠시 후 다시 시도해주세요.',
+          style:
+              AppTextStyles.caption.copyWith(color: AppColors.textSecondary)),
+      data: (detail) {
+        if (detail.status == InsightStatus.unavailable) {
+          return Text('아직 정보가 없습니다',
+              style: AppTextStyles.caption
+                  .copyWith(color: AppColors.textSecondary));
+        }
+        // 본문(출처줄 제거)을 「성분 역할」/「주의사항」 구획으로 나눈다.
+        final body = detail.body == null
+            ? null
+            : InsightSectionPolicy.splitRoleCaution(
+                SourceDisplayPolicy.stripSourceLines(detail.body!));
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (body != null && body.role.isNotEmpty) ...[
+              const SectionLabel('성분 역할', dense: true),
+              Text(body.role,
+                  style: AppTextStyles.body.copyWith(height: 1.6)),
+            ],
+            if (body?.caution != null || detail.safety != null) ...[
+              const SizedBox(height: 12),
+              const SectionLabel('주의사항',
+                  color: AppColors.danger, dense: true),
+              if (body?.caution != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Text(body!.caution!,
+                      style: AppTextStyles.body.copyWith(height: 1.6)),
+                ),
+              if (detail.safety != null &&
+                  detail.safetyKind == SafetyKind.official)
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(Icons.warning_amber_rounded,
+                        size: 16, color: AppColors.danger),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(detail.safety!,
+                          style: AppTextStyles.caption.copyWith(
+                              color: AppColors.danger, height: 1.5)),
+                    ),
+                  ],
+                )
+              else if (detail.safety != null &&
+                  detail.safetyKind == SafetyKind.general)
+                Text(detail.safety!,
+                    style: AppTextStyles.caption
+                        .copyWith(color: AppColors.textPrimary, height: 1.5)),
+            ],
+            // 출처 — 표시 정책상 숨김 (source_verified 검증 규칙은 유지).
+            if (SourceDisplayPolicy.showSources &&
+                detail.sourceVerified &&
+                detail.referenceSource != null) ...[
+              const SizedBox(height: 8),
+              Text('출처: ${detail.referenceSource}',
+                  style: AppTextStyles.caption
+                      .copyWith(color: AppColors.textSecondary)),
+            ],
+          ],
+        );
+      },
     );
   }
 }

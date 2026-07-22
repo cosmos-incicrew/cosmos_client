@@ -4,10 +4,10 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../app/theme/app_assets.dart';
 import '../../../../app/theme/app_colors.dart';
+import '../../../../core/widgets/screen_title.dart';
 import '../../../../app/theme/app_text_styles.dart';
 import '../../../../core/widgets/pixel_box.dart';
 import '../../../bsti/bsti.dart';
-import '../../../my_shelf/presentation/screens/product_detail_screen.dart';
 import '../../data/report_engine.dart';
 import '../../data/report_provider.dart';
 
@@ -27,21 +27,6 @@ class ReportScreen extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(
-        backgroundColor: AppColors.background,
-        elevation: 0,
-        automaticallyImplyLeading: false,
-        title: const Text('내 화장대 보고서', style: AppTextStyles.title),
-        centerTitle: true,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.home_outlined, color: AppColors.textPrimary),
-            iconSize: 28,
-            onPressed: () => context.go('/home'),
-          ),
-          const SizedBox(width: 4),
-        ],
-      ),
       body: SafeArea(
         child: reportAsync.when(
           loading: () => const Center(child: CircularProgressIndicator()),
@@ -68,8 +53,14 @@ class ReportScreen extends ConsumerWidget {
         ref.watch(shelfSuggestionsProvider).valueOrNull ?? const [];
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+      padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
       children: [
+        ScreenTitle(
+          title: '내 화장대 보고서',
+          onBack: () =>
+              context.canPop() ? context.pop() : context.go('/home'),
+        ),
+        const SizedBox(height: 8),
         _typeCard(type),
         const SizedBox(height: 20),
         _scoreCard(report),
@@ -124,11 +115,7 @@ class ReportScreen extends ConsumerWidget {
               Padding(
                 padding: const EdgeInsets.only(bottom: 6),
                 child: GestureDetector(
-                  onTap: () {
-                    Navigator.of(context).push(MaterialPageRoute(
-                      builder: (_) => ProductDetailScreen(product: p),
-                    ));
-                  },
+                  onTap: () => context.push('/shelf/product', extra: p),
                   behavior: HitTestBehavior.opaque,
                   child: Row(
                     children: [

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../app/theme/app_assets.dart';
 import '../../../../app/theme/app_colors.dart';
+import '../../../../core/widgets/screen_title.dart';
 import '../../../../app/theme/app_text_styles.dart';
 import '../../../../core/widgets/pixel_box.dart';
 import '../../data/shelf_preference.dart';
@@ -23,18 +24,14 @@ class MyShelfScreen extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(
-        backgroundColor: AppColors.background,
-        elevation: 0,
-        title: const Text('나의 화장대', style: AppTextStyles.title),
-      ),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const SizedBox(height: 24),
+              const ScreenTitle(title: '나의 화장대'),
+              const SizedBox(height: 12),
               _addButton(context),
               const SizedBox(height: 24),
               Expanded(

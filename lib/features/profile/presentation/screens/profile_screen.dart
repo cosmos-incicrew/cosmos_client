@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../app/theme/app_colors.dart';
+import '../../../../core/widgets/screen_title.dart';
 import '../../../auth/data/auth_state.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 
@@ -17,10 +18,10 @@ class ProfileScreen extends ConsumerWidget {
     final auth = ref.watch(authControllerProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('마이페이지')),
       body: ListView(
         children: [
-          const SizedBox(height: 16),
+          const ScreenTitle(title: '마이페이지'),
+          const SizedBox(height: 8),
           Center(
             child: CircleAvatar(
               radius: 40,
@@ -163,7 +164,6 @@ class ProfileScreen extends ConsumerWidget {
     return switch (provider) {
       AuthProvider.guest => '게스트 로그인',
       AuthProvider.kakao => '카카오 계정',
-      AuthProvider.naver => '네이버 계정 (목업)',
       AuthProvider.google => 'Google 계정',
       AuthProvider.apple => 'Apple 계정',
       AuthProvider.none => '',

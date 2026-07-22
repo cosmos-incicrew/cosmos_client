@@ -11,7 +11,12 @@ import '../../features/bsti/bsti_result_store.dart';
 import '../../features/bsti/bsti_test_screen.dart';
 import '../../features/home/presentation/screens/home_screen.dart';
 import '../../features/my_shelf/presentation/screens/my_shelf_screen.dart';
+import '../../features/compare/presentation/screens/product_compare_screen.dart';
+import '../../features/ingredient/data/models/ingredient.dart';
+import '../../features/my_shelf/presentation/screens/ingredient_detail_screen.dart';
+import '../../features/my_shelf/presentation/screens/product_detail_screen.dart';
 import '../../features/my_shelf/presentation/screens/shelf_add_screen.dart';
+import '../../features/product/data/models/product.dart';
 import '../../features/onboarding/presentation/screens/onboarding_done_screen.dart';
 import '../../features/onboarding/presentation/screens/onboarding_intro_screen.dart';
 import '../../features/onboarding/presentation/screens/profile_setup_screen.dart';
@@ -107,76 +112,46 @@ final routerProvider = Provider<GoRouter>((ref) {
         ],
       ),
 
-      // BSTI 검사 (쉘 밖, 전체 화면)
-      GoRoute(
-        path: '/bsti',
-        parentNavigatorKey: _rootKey,
-        // 이미 이번 로그인에서 검사를 했으면 소개 화면을 건너뛰고 결과로 바로 간다.
-        // (다시 검사하려면 결과 화면의 재검사 → clear() 후 /bsti/test)
-        redirect: (context, state) {
-          final saved = ref.read(bstiResultProvider);
-          if (saved != null) return '/bsti/result?code=$saved';
-          return null;
-        },
-        builder: (context, state) => const BstiIntroScreen(),
-        routes: [
-          GoRoute(
-            path: 'test',
-            builder: (context, state) => const BstiTestScreen(),
-          ),
-          GoRoute(
-            path: 'result',
-            builder: (context, state) => BstiResultScreen(
-              typeCode: state.uri.queryParameters['code'] ?? 'OSPW',
-            ),
-          ),
-        ],
-      ),
-
-      // 화장대에 추가 (검색·자동완성, 쉘 밖 전체 화면)
-      GoRoute(
-        path: '/shelf/add',
-        parentNavigatorKey: _rootKey,
-        builder: (context, state) => const ShelfAddScreen(),
-      ),
-
-      // 맞춤 추천 (쉘 밖 전체 화면)
-      GoRoute(
-        path: '/recommendation',
-        parentNavigatorKey: _rootKey,
-        builder: (context, state) => const RecommendationScreen(),
-      ),
-
-      // 내 화장대 종합보고서 (BSTI 유형 × 담은 제품 적합도)
-      GoRoute(
-        path: '/report',
-        parentNavigatorKey: _rootKey,
-        builder: (context, state) => const ReportScreen(),
-      ),
-
-      // 프로필 수정 (마이페이지에서 진입, 쉘 밖 전체 화면)
-      // 별도 경로인 이유: `/onboarding/*` 은 온보딩을 마치면 리다이렉트로 막힌다.
-      GoRoute(
-        path: '/profile/edit',
-        parentNavigatorKey: _rootKey,
-        builder: (context, state) => const ProfileSetupScreen(isEditing: true),
-      ),
-
-      // 하단 탭 쉘 (화장대 / 홈 / 마이)
+      // 하단 탭 쉘 (화장대 / 홈 / 마이) — 헤더·푸터는 쉘이 고정으로 가진다.
+      // 메인 화면 전부가 브랜치 안에 있다 (쉘 밖은 스플래시·온보딩뿐).
       // ⚠️ 브랜치 순서 = AppShell.destinations 순서. 한쪽만 바꾸면 탭이 어긋난다.
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) =>
             AppShell(navigationShell: navigationShell),
         branches: [
+          // ── 화장대 탭: 검색·상세까지 이 브랜치 안 (푸터 유지) ──
           StatefulShellBranch(
             navigatorKey: _shelfKey,
             routes: [
               GoRoute(
                 path: '/shelf',
                 builder: (context, state) => const MyShelfScreen(),
+                routes: [
+                  GoRoute(
+                    path: 'add',
+                    builder: (context, state) => const ShelfAddScreen(),
+                  ),
+                  // 상세는 검색 결과의 객체를 extra 로 받는다.
+                  // 딥링크 등으로 extra 없이 들어오면 화장대로 돌려보낸다.
+                  GoRoute(
+                    path: 'product',
+                    redirect: (context, state) =>
+                        state.extra is Product ? null : '/shelf',
+                    builder: (context, state) =>
+                        ProductDetailScreen(product: state.extra! as Product),
+                  ),
+                  GoRoute(
+                    path: 'ingredient',
+                    redirect: (context, state) =>
+                        state.extra is Ingredient ? null : '/shelf',
+                    builder: (context, state) => IngredientDetailScreen(
+                        ingredient: state.extra! as Ingredient),
+                  ),
+                ],
               ),
             ],
           ),
+          // ── 홈 탭: 홈에서 진입하는 기능 화면 전부 ──
           StatefulShellBranch(
             navigatorKey: _homeKey,
             routes: [
@@ -184,14 +159,58 @@ final routerProvider = Provider<GoRouter>((ref) {
                 path: '/home',
                 builder: (context, state) => const HomeScreen(),
               ),
+              GoRoute(
+                path: '/bsti',
+                // 이미 검사를 했으면 소개를 건너뛰고 결과로 바로 간다.
+                redirect: (context, state) {
+                  final saved = ref.read(bstiResultProvider);
+                  if (saved != null) return '/bsti/result?code=$saved';
+                  return null;
+                },
+                builder: (context, state) => const BstiIntroScreen(),
+                routes: [
+                  GoRoute(
+                    path: 'test',
+                    builder: (context, state) => const BstiTestScreen(),
+                  ),
+                  GoRoute(
+                    path: 'result',
+                    builder: (context, state) => BstiResultScreen(
+                      typeCode: state.uri.queryParameters['code'] ?? 'OSPW',
+                    ),
+                  ),
+                ],
+              ),
+              GoRoute(
+                path: '/recommendation',
+                builder: (context, state) => const RecommendationScreen(),
+              ),
+              GoRoute(
+                path: '/report',
+                builder: (context, state) => const ReportScreen(),
+              ),
+              // 다중 제품 비교 (성분 구성 차이 + 해설)
+              GoRoute(
+                path: '/compare',
+                builder: (context, state) => const ProductCompareScreen(),
+              ),
             ],
           ),
+          // ── 마이 탭 ──
           StatefulShellBranch(
             navigatorKey: _profileKey,
             routes: [
               GoRoute(
                 path: '/profile',
                 builder: (context, state) => const ProfileScreen(),
+                routes: [
+                  // 별도 경로인 이유: `/onboarding/*` 은 온보딩 후 리다이렉트로 막힘.
+                  GoRoute(
+                    path: 'edit',
+                    builder: (context, state) =>
+                        const ProfileSetupScreen(isEditing: true),
+                  ),
+                ],
               ),
             ],
           ),

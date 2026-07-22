@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 import '../../../../app/theme/app_assets.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_text_styles.dart';
-import '../../../../core/widgets/app_drawer.dart';
 import '../../../../core/widgets/pixel_box.dart';
 
 /// 홈 화면 — 기능 허브. (피그마 가안 레이아웃)
@@ -18,35 +17,8 @@ class HomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 헤더(로고)·서랍·푸터는 쉘(AppShell)이 고정으로 가진다.
     return Scaffold(
-      appBar: AppBar(
-        // 좌: 햄버거 메뉴 (Builder로 감싸 Scaffold context 확보)
-        leading: Builder(
-          builder: (ctx) => IconButton(
-            icon: const Icon(Icons.menu, color: AppColors.textPrimary),
-            iconSize: 32,
-            onPressed: () => Scaffold.of(ctx).openDrawer(),
-          ),
-        ),
-        leadingWidth: 64,
-        // 중앙: COSMOS 워드마크 로고 (위 여백을 줘서 답답하지 않게)
-        title: Padding(
-          padding: const EdgeInsets.only(top: 16),
-          child: Image.asset(AppAssets.logoWordmark, height: 52),
-        ),
-        centerTitle: true,
-        // 우: 마이페이지
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.person_outline, color: AppColors.textPrimary),
-            iconSize: 32,
-            onPressed: () => context.go('/profile'),
-          ),
-          const SizedBox(width: 8),
-        ],
-        toolbarHeight: 96,
-      ),
-      drawer: const AppDrawer(),
       // 한 화면에 들어오게 배치하되, 작은 화면에선 안전하게 스크롤.
       // IntrinsicHeight — 스크롤 안에서도 Spacer가 동작하도록 높이를 확정한다.
       body: SafeArea(
@@ -66,7 +38,9 @@ class HomeScreen extends StatelessWidget {
                       // 배너와 메뉴 사이는 붙이고, 남는 공간은 아래로 몬다.
                       const SizedBox(height: 16),
                       _menuGrid(context),
-                      const Spacer(flex: 3),
+                      // 푸터와의 간격은 좁게 — 남는 공간을 위로 올린다.
+                      const Spacer(flex: 1),
+                      const SizedBox(height: 4),
                     ],
                   ),
                 ),
@@ -87,9 +61,6 @@ class HomeScreen extends StatelessWidget {
             height: 34,
             errorBuilder: (_, __, ___) => const Icon(Icons.search,
                 color: AppColors.textPrimary, size: 32)),
-        const SizedBox(width: 8),
-        Text('제품·성분',
-            style: AppTextStyles.title.copyWith(color: AppColors.textPrimary)),
         const SizedBox(width: 10),
         Expanded(
           child: GestureDetector(
@@ -123,6 +94,10 @@ class HomeScreen extends StatelessWidget {
     // (BSTI 검사 전이면 보고서가 "검사 먼저" 안내를 띄운다)
     return _ImageButton(
       asset: AppAssets.homeShelfScoreBanner,
+      // START 버튼만 커진 버전 — 이미지가 들어오면 자동으로 교체된다.
+      hoverAsset: AppAssets.homeShelfScoreBannerHover,
+      // 라운드는 이미지에 직접 구워져 있다 (두 장 동일 반지름 26px) —
+      // 코드 클립을 더하면 이중으로 깎여서 여기선 안 자른다.
       label: '내 화장대 점수는??',
       onTap: () => context.push('/report'),
     );
@@ -132,11 +107,16 @@ class HomeScreen extends StatelessWidget {
   //
   // 이미지 안에 캡션·타이틀·버튼이 모두 그려져 있어 텍스트를 얹지 않는다.
   Widget _menuGrid(BuildContext context) {
+    // 네 버튼 모두 같은 폭(286px)으로 뽑힌 원본 — 배율 보정 없이
+    // 반반 그리드에 그대로. 높이만 살짝 달라서 행마다 하단선을 맞춘다.
+    // 전체를 86% 로 줄여 그린다 (버튼이 꽉 차면 부담스러움 — 조절은 이 숫자).
     return Column(
       children: [
-        // 1행: BSTI | 내 화장대 (정사각 이미지 2장 → 좌우 균등)
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        // 1행: BSTI | 내 화장대 — 버튼 행만 86% (라벨 바는 배너와 같은 전체 폭).
+        FractionallySizedBox(
+          widthFactor: 0.86,
+          child: Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
           children: [
             Expanded(
               child: _ImageButton(
@@ -145,7 +125,7 @@ class HomeScreen extends StatelessWidget {
                 onTap: () => context.push('/bsti'),
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 28),
             Expanded(
               child: _ImageButton(
                 asset: AppAssets.homeShelf,
@@ -155,15 +135,60 @@ class HomeScreen extends StatelessWidget {
               ),
             ),
           ],
+          ),
         ),
-        const SizedBox(height: 12),
-        // 2행: My-Skin ITEM — 가로로 긴 이미지. 폭을 살짝만 좁힌다.
+        // 행 사이 구분 문구 — 별밤 배경 위에 흰 갈무리체 + 옅은 노랑 네온.
+        Padding(
+          padding: const EdgeInsets.only(top: 24, bottom: 8),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(14),
+                child: Image.asset(
+                  AppAssets.homeRecoLabelBg,
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                ),
+              ),
+              Text(
+                  '내 화장대와 베스트 조합찾기!!',
+                  style: AppTextStyles.pointBoldEn(size: 19, color: Colors.white)
+                      .copyWith(
+                    shadows: const [
+                      // 옅은 노란 네온 — 안쪽 잔광 + 바깥 번짐.
+                      Shadow(color: Color(0xCCFFF3B0), blurRadius: 6),
+                      Shadow(color: Color(0x88FFE96B), blurRadius: 14),
+                      Shadow(color: Color(0x55FFE96B), blurRadius: 26),
+                    ],
+                  ),
+              ),
+            ],
+          ),
+        ),
+        // 2행: 같이 써도 될까?(성분 비교) | My-Skin ITEM
         FractionallySizedBox(
-          widthFactor: 0.88,
-          child: _ImageButton(
-            asset: AppAssets.homeMyItem,
-            label: '나와 베스트 궁합 제품추천',
-            onTap: () => context.push('/recommendation'),
+          widthFactor: 0.86,
+          child: Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Expanded(
+              child: _ImageButton(
+                asset: AppAssets.homeCompare,
+                label: '같이 써도 될까? 성분 비교 추천',
+                onTap: () => context.push('/compare'),
+              ),
+            ),
+            const SizedBox(width: 28),
+            Expanded(
+              child: _ImageButton(
+                asset: AppAssets.homeMyItem,
+                label: '나와 베스트 궁합 제품추천',
+                onTap: () => context.push('/recommendation'),
+              ),
+            ),
+          ],
           ),
         ),
       ],
@@ -175,11 +200,12 @@ class HomeScreen extends StatelessWidget {
 ///
 /// 캡션·타이틀·화살표가 이미지 안에 그려져 있으므로 위에 아무것도 얹지 않는다.
 /// 이미지가 없을 때만 [label] 텍스트 플레이스홀더로 대체한다.
-class _ImageButton extends StatelessWidget {
+class _ImageButton extends StatefulWidget {
   const _ImageButton({
     required this.asset,
     required this.label,
     required this.onTap,
+    this.hoverAsset,
   });
 
   final String asset;
@@ -188,30 +214,85 @@ class _ImageButton extends StatelessWidget {
   final String label;
   final VoidCallback onTap;
 
+  /// 호버 시 교체할 이미지 (예: START 버튼만 커진 버전).
+  /// 주어지면 스케일 효과 대신 **이미지 두 장 교체**로 반응한다.
+  /// 파일이 아직 없으면 기본 이미지가 유지된다.
+  final String? hoverAsset;
+
+  @override
+  State<_ImageButton> createState() => _ImageButtonState();
+}
+
+class _ImageButtonState extends State<_ImageButton> {
+  bool _hovered = false;
+  bool _pressed = false;
+
   @override
   Widget build(BuildContext context) {
+    // 호버 반응: 호버 이미지가 있으면 두 장 교체, 없으면 스케일.
+    // 프레스(누름)는 공통으로 살짝 눌린다.
+    final hasHoverImage = widget.hoverAsset != null;
+    final scale =
+        _pressed ? 0.96 : (_hovered && !hasHoverImage ? 1.04 : 1.0);
+
     return Semantics(
       button: true,
-      label: label,
-      child: GestureDetector(
-        onTap: onTap,
-        behavior: HitTestBehavior.opaque,
-        child: Image.asset(
-          asset,
-          fit: BoxFit.contain,
-          errorBuilder: (_, __, ___) => Container(
-            height: 100,
-            decoration: BoxDecoration(
-              color: AppColors.primaryLight.withValues(alpha: 0.4),
-              borderRadius: BorderRadius.circular(16),
+      label: widget.label,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _hovered = true),
+        onExit: (_) => setState(() => _hovered = false),
+        child: GestureDetector(
+          onTap: widget.onTap,
+          onTapDown: (_) => setState(() => _pressed = true),
+          onTapUp: (_) => setState(() => _pressed = false),
+          onTapCancel: () => setState(() => _pressed = false),
+          behavior: HitTestBehavior.opaque,
+          child: AnimatedScale(
+            scale: scale,
+            duration: const Duration(milliseconds: 120),
+            curve: Curves.easeOut,
+            // 두 장을 겹쳐두고 투명도만 바꾼다 — 첫 호버에 로딩 깜빡임이 없다.
+            child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Opacity(
+                    opacity: hasHoverImage && _hovered ? 0.0 : 1.0,
+                    child: Image.asset(
+                      widget.asset,
+                      fit: BoxFit.contain,
+                      errorBuilder: (_, __, ___) => Container(
+                        height: 100,
+                        decoration: BoxDecoration(
+                          color:
+                              AppColors.primaryLight.withValues(alpha: 0.4),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(widget.label,
+                            textAlign: TextAlign.center,
+                            style: AppTextStyles.caption
+                                .copyWith(color: AppColors.textPrimary)),
+                      ),
+                    ),
+                  ),
+                  if (hasHoverImage)
+                    Positioned.fill(
+                      child: Opacity(
+                        opacity: _hovered ? 1.0 : 0.0,
+                        child: Image.asset(
+                          widget.hoverAsset!,
+                          fit: BoxFit.contain,
+                          // 호버 이미지가 아직 없으면 조용히 기본 유지.
+                          errorBuilder: (_, __, ___) =>
+                              const SizedBox.shrink(),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
             ),
-            alignment: Alignment.center,
-            child: Text(label,
-                textAlign: TextAlign.center,
-                style: AppTextStyles.caption
-                    .copyWith(color: AppColors.textPrimary)),
           ),
-        ),
       ),
     );
   }

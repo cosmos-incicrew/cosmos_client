@@ -8,14 +8,13 @@ import '../../../../app/theme/app_assets.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_text_styles.dart';
 import '../../../../core/widgets/pixel_box.dart';
+import '../../../../core/widgets/screen_title.dart';
 import '../../../ingredient/data/ingredient_providers.dart';
 import '../../../ingredient/data/models/ingredient.dart';
 import '../../../product/data/models/product.dart';
 import '../../../product/data/product_providers.dart';
 import '../../data/shelf_preference.dart';
 import '../widgets/preference_dialog.dart';
-import 'ingredient_detail_screen.dart';
-import 'product_detail_screen.dart';
 
 /// 제품·성분 검색 화면.
 ///
@@ -66,20 +65,18 @@ class _ShelfAddScreenState extends ConsumerState<ShelfAddScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(
-        backgroundColor: AppColors.background,
-        elevation: 0,
-        // 긴 한글 제목은 Pretendard로 (갈무리 픽셀 폰트는 깨져 보임).
-        title: const Text('제품·성분 검색', style: AppTextStyles.title),
-      ),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // 기능 페이지 상단 여백.
-              const SizedBox(height: 60),
+              ScreenTitle(
+                title: '제품·성분 검색',
+                onBack: () =>
+                    context.canPop() ? context.pop() : context.go('/shelf'),
+              ),
+              const SizedBox(height: 16),
               // 검색 입력창 (비트맵 픽셀 박스).
               PixelBox(
                 borderColor: AppColors.textPrimary,
@@ -248,11 +245,7 @@ class _ShelfAddScreenState extends ConsumerState<ShelfAddScreen> {
       padding: const EdgeInsets.only(bottom: 10),
       child: GestureDetector(
         // 타일 본체 → 제품 상세 (권장 피부타입 등).
-        onTap: () {
-          Navigator.of(context).push(MaterialPageRoute(
-            builder: (_) => ProductDetailScreen(product: p),
-          ));
-        },
+        onTap: () => context.push('/shelf/product', extra: p),
         behavior: HitTestBehavior.opaque,
         child: PixelBox(
           borderColor: AppColors.outline,
@@ -353,11 +346,7 @@ class _ShelfAddScreenState extends ConsumerState<ShelfAddScreen> {
       padding: const EdgeInsets.only(bottom: 10),
       child: GestureDetector(
         // 타일 본체 → 성분 상세.
-        onTap: () {
-          Navigator.of(context).push(MaterialPageRoute(
-            builder: (_) => IngredientDetailScreen(ingredient: i),
-          ));
-        },
+        onTap: () => context.push('/shelf/ingredient', extra: i),
         behavior: HitTestBehavior.opaque,
         child: PixelBox(
           borderColor: AppColors.outline,

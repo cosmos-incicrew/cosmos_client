@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../app/theme/app_assets.dart';
+import '../../../../app/router/app_shell.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_text_styles.dart';
 import '../../../../core/widgets/app_drawer.dart';
@@ -109,7 +110,9 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(28, 8, 28, 24),
-          child: Column(
+          // 반응형: 넓은 창에서 폼이 좌우로 퍼지지 않게 폰 폭으로 제한.
+          child: ContentWidth(
+              child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // 화면 제목 — 목업의 "My Profile".
@@ -183,7 +186,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                 ),
               ],
             ],
-          ),
+          )),
         ),
       ),
     );
