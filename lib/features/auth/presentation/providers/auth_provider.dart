@@ -67,6 +67,14 @@ class AuthController extends StateNotifier<AuthState> {
     await _repo.signInWithKakao();
   }
 
+  /// 네이버 로그인 — ⚠️ 목업 (실제 연동 계획 없음, 누르면 성공).
+  ///
+  /// Supabase 세션이 없으므로 게스트처럼 상태를 직접 세운다.
+  /// 서버 API(맞춤 추천 등)는 토큰이 없어 쓰지 못한다.
+  Future<void> signInWithNaver() async {
+    state = await _repo.signInWithNaver();
+  }
+
   Future<void> signOut() async {
     await _repo.signOut();
     _ref.read(userProfileProvider.notifier).clear();

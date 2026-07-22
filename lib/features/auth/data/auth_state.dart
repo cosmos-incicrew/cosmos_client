@@ -2,7 +2,7 @@
 enum AuthStatus { unknown, unauthenticated, guest, authenticated }
 
 /// 로그인 방식.
-enum AuthProvider { none, guest, kakao, google, apple }
+enum AuthProvider { none, guest, kakao, naver, google, apple }
 
 class AuthState {
   const AuthState({
