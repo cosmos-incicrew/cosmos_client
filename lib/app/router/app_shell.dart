@@ -83,29 +83,97 @@ class AppShell extends StatelessWidget {
       drawer: const AppDrawer(),
       // 반응형: 넓은 창에서도 콘텐츠는 폰 폭으로 가운데 정렬.
       body: ContentWidth(child: navigationShell),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: navigationShell.currentIndex,
-        onDestinationSelected: (index) => navigationShell.goBranch(
-          index,
-          initialLocation: index == navigationShell.currentIndex,
+      bottomNavigationBar: NavigationBarTheme(
+        data: NavigationBarThemeData(
+          height: 78,
+          backgroundColor: AppColors.background,
+          indicatorColor: AppColors.primaryLight,
+          // 라벨: 앱 컨셉대로 영문 갈무리 픽셀 폰트, 기존보다 키움.
+          labelTextStyle: WidgetStateProperty.resolveWith(
+            (states) => AppTextStyles.pointBoldEn(
+              size: 13,
+              color: states.contains(WidgetState.selected)
+                  ? AppColors.primaryDark
+                  : AppColors.textSecondary,
+            ),
+          ),
         ),
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.shelves),
-            selectedIcon: Icon(Icons.shelves),
-            label: '화장대',
+        child: NavigationBar(
+          selectedIndex: navigationShell.currentIndex,
+          onDestinationSelected: (index) => navigationShell.goBranch(
+            index,
+            initialLocation: index == navigationShell.currentIndex,
           ),
-          NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home),
-            label: '홈',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.person_outline),
-            selectedIcon: Icon(Icons.person),
-            label: '마이',
-          ),
-        ],
+          destinations: const [
+            NavigationDestination(
+              icon: _FooterIcon(
+                  asset: AppAssets.footerShelf,
+                  fallback: Icons.shelves,
+                  selected: false),
+              selectedIcon: _FooterIcon(
+                  asset: AppAssets.footerShelf,
+                  fallback: Icons.shelves,
+                  selected: true),
+              label: 'SHELF',
+            ),
+            NavigationDestination(
+              icon: _FooterIcon(
+                  asset: AppAssets.footerHome,
+                  fallback: Icons.home_outlined,
+                  selected: false),
+              selectedIcon: _FooterIcon(
+                  asset: AppAssets.footerHome,
+                  fallback: Icons.home,
+                  selected: true),
+              label: 'HOME',
+            ),
+            NavigationDestination(
+              icon: _FooterIcon(
+                  asset: AppAssets.footerMy,
+                  fallback: Icons.person_outline,
+                  selected: false),
+              selectedIcon: _FooterIcon(
+                  asset: AppAssets.footerMy,
+                  fallback: Icons.person,
+                  selected: true),
+              label: 'MY',
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 하단바 아이콘 — assets/icons/footer/ 의 PNG 를 쓰고,
+/// 파일이 아직 없으면 [fallback] Material 아이콘으로 대체한다.
+/// 선택 안 된 탭은 반투명으로 보여준다.
+class _FooterIcon extends StatelessWidget {
+  const _FooterIcon({
+    required this.asset,
+    required this.fallback,
+    required this.selected,
+  });
+
+  final String asset;
+  final IconData fallback;
+  final bool selected;
+
+  static const double _size = 30; // 기존(24)보다 키움
+
+  @override
+  Widget build(BuildContext context) {
+    return Opacity(
+      opacity: selected ? 1.0 : 0.45,
+      child: Image.asset(
+        asset,
+        width: _size,
+        height: _size,
+        errorBuilder: (_, __, ___) => Icon(
+          fallback,
+          size: _size,
+          color: selected ? AppColors.primaryDark : AppColors.textPrimary,
+        ),
       ),
     );
   }

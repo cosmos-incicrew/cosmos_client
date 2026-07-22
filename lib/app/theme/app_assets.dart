@@ -21,6 +21,12 @@ class AppAssets {
   /// 앱 상단(앱바)에 항상 유지되는 워드마크 — "COSMOS" + 별.
   static const String logoWordmark = '$_logo/logo_wordmark.png';
 
+  // 하단바(푸터) 아이콘. 파일이 없으면 기본 Material 아이콘으로 대체된다.
+  static const String _footer = 'assets/icons/footer';
+  static const String footerShelf = '$_footer/shelf.png'; // 화장품 단품
+  static const String footerHome = '$_footer/home.png';
+  static const String footerMy = '$_footer/my.png';
+
   // 소셜 로그인 정품 로고 (PNG). 파일을 assets/icons/social/ 에 넣으면 표시됨.
   static const String kakao = '$_social/kakao.png';
   static const String google = '$_social/google.png';
