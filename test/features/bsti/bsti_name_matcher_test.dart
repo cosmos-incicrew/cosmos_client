@@ -49,4 +49,22 @@ void main() {
       }
     }
   });
+
+  test('검증된 서버 이명으로도 풀린다 (레틴알·바쿠치올 → retal)', () {
+    // 서버 실데이터로 확인된 표기 차이만 이명으로 등록한다.
+    expect(bstiIdForNames(nameKr: '레틴알'), 'retal');
+    expect(bstiIdForNames(nameKr: '바쿠치올'), 'retal');
+  });
+
+  test('이명은 사전의 다른 이름과 겹치지 않는다', () {
+    // 이명이 정식명과 충돌하면 매칭이 임의로 갈린다.
+    final all = <String>{
+      for (final ing in kBstiIngredients.values) ing.nameKo,
+    };
+    for (final aliases in kBstiServerAliases.values) {
+      for (final a in aliases) {
+        expect(all.contains(a), isFalse, reason: '이명 "\$a" 가 정식명과 충돌');
+      }
+    }
+  });
 }

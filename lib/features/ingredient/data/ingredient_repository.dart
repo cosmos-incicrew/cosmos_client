@@ -167,8 +167,13 @@ class IngredientRepository {
   }
 
   Future<void> _indexOne(BstiIngredient bsti, Map<int, String> index) async {
-    // 한글명 먼저, 안 잡히면 INCI. 후보 중 **정확 일치**만 채택한다.
-    for (final query in [bsti.nameKo, if (bsti.inci != null) bsti.inci!]) {
+    // 한글명 먼저, 안 잡히면 INCI, 그다음 검증된 서버 이명 순.
+    // 후보 중 **정확 일치**만 채택한다.
+    for (final query in [
+      bsti.nameKo,
+      if (bsti.inci != null) bsti.inci!,
+      ...?kBstiServerAliases[bsti.id],
+    ]) {
       List<Ingredient> candidates;
       try {
         candidates = await search(query);
