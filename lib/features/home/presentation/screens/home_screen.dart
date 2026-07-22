@@ -103,6 +103,8 @@ class HomeScreen extends StatelessWidget {
     // (BSTI 검사 전이면 보고서가 "검사 먼저" 안내를 띄운다)
     return _ImageButton(
       asset: AppAssets.homeShelfScoreBanner,
+      // START 버튼만 커진 버전 — 이미지가 들어오면 자동으로 교체된다.
+      hoverAsset: AppAssets.homeShelfScoreBannerHover,
       label: '내 화장대 점수는??',
       onTap: () => context.push('/report'),
     );
@@ -122,6 +124,10 @@ class HomeScreen extends StatelessWidget {
               child: _ImageButton(
                 asset: AppAssets.homeBsti,
                 label: 'BSTI 피부타입 검사',
+                // BSTI PNG 는 내부 여백이 많아 같은 폭에서 작아 보인다 —
+                // 살짝 키워 화장대(0.92)와 크기를 맞춘다. (1.04 는 12px 간격
+                // 안에서 흡수되는 수준이라 옆 버튼을 침범하지 않는다)
+                widthFactor: 1.04,
                 onTap: () => context.push('/bsti'),
               ),
             ),
@@ -163,6 +169,7 @@ class _ImageButton extends StatefulWidget {
     required this.label,
     required this.onTap,
     this.widthFactor = 1.0,
+    this.hoverAsset,
   });
 
   final String asset;
@@ -175,6 +182,11 @@ class _ImageButton extends StatefulWidget {
   /// 버튼끼리 크기를 맞출 때 쓴다.
   final double widthFactor;
 
+  /// 호버 시 교체할 이미지 (예: START 버튼만 커진 버전).
+  /// 주어지면 스케일 효과 대신 **이미지 두 장 교체**로 반응한다.
+  /// 파일이 아직 없으면 기본 이미지가 유지된다.
+  final String? hoverAsset;
+
   @override
   State<_ImageButton> createState() => _ImageButtonState();
 }
@@ -185,9 +197,11 @@ class _ImageButtonState extends State<_ImageButton> {
 
   @override
   Widget build(BuildContext context) {
-    // 호버(웹/데스크톱)에선 살짝 커지고, 누르는 순간엔 살짝 눌린다.
-    // 이미지 자체를 못 바꾸는 대신 스케일로 반응을 준다.
-    final scale = _pressed ? 0.96 : (_hovered ? 1.04 : 1.0);
+    // 호버 반응: 호버 이미지가 있으면 두 장 교체, 없으면 스케일.
+    // 프레스(누름)는 공통으로 살짝 눌린다.
+    final hasHoverImage = widget.hoverAsset != null;
+    final scale =
+        _pressed ? 0.96 : (_hovered && !hasHoverImage ? 1.04 : 1.0);
 
     return Semantics(
       button: true,
@@ -208,21 +222,44 @@ class _ImageButtonState extends State<_ImageButton> {
             curve: Curves.easeOut,
             child: FractionallySizedBox(
               widthFactor: widget.widthFactor,
-              child: Image.asset(
-                widget.asset,
-                fit: BoxFit.contain,
-                errorBuilder: (_, __, ___) => Container(
-                  height: 100,
-                  decoration: BoxDecoration(
-                    color: AppColors.primaryLight.withValues(alpha: 0.4),
-                    borderRadius: BorderRadius.circular(16),
+              // 두 장을 겹쳐두고 투명도만 바꾼다 — 첫 호버에 로딩 깜빡임이 없다.
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Opacity(
+                    opacity: hasHoverImage && _hovered ? 0.0 : 1.0,
+                    child: Image.asset(
+                      widget.asset,
+                      fit: BoxFit.contain,
+                      errorBuilder: (_, __, ___) => Container(
+                        height: 100,
+                        decoration: BoxDecoration(
+                          color:
+                              AppColors.primaryLight.withValues(alpha: 0.4),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(widget.label,
+                            textAlign: TextAlign.center,
+                            style: AppTextStyles.caption
+                                .copyWith(color: AppColors.textPrimary)),
+                      ),
+                    ),
                   ),
-                  alignment: Alignment.center,
-                  child: Text(widget.label,
-                      textAlign: TextAlign.center,
-                      style: AppTextStyles.caption
-                          .copyWith(color: AppColors.textPrimary)),
-                ),
+                  if (hasHoverImage)
+                    Positioned.fill(
+                      child: Opacity(
+                        opacity: _hovered ? 1.0 : 0.0,
+                        child: Image.asset(
+                          widget.hoverAsset!,
+                          fit: BoxFit.contain,
+                          // 호버 이미지가 아직 없으면 조용히 기본 유지.
+                          errorBuilder: (_, __, ___) =>
+                              const SizedBox.shrink(),
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ),
           ),

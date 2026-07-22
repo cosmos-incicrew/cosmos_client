@@ -34,6 +34,12 @@ class AppAssets {
   /// "내 화장대 점수는??" 배너 (타이틀·설명·START·고양이 포함).
   static const String homeShelfScoreBanner = '$_home/shelf_score_banner.png';
 
+  /// 화장대 점수 배너의 **호버 버전** — START 버튼만 커진 이미지.
+  /// 같은 크기(px)로 이 경로에 넣으면 마우스 올릴 때 교체된다.
+  /// 파일이 없으면 그냥 기본 이미지가 유지된다 (에러 아님).
+  static const String homeShelfScoreBannerHover =
+      '$_home/shelf_score_banner_hover.png';
+
   /// BSTI — "16가지 피부 MBTI / 내 피부타입 검사".
   static const String homeBsti = '$_home/bsti.png';
 
