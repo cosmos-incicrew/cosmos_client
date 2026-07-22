@@ -117,6 +117,21 @@ class AuthRepository {
     }
   }
 
+  /// 네이버 로그인 — ⚠️ 목업 (실제 연동 계획 없음, 누르면 성공).
+  ///
+  /// 네이버는 Supabase 기본 제공자가 아니라 붙이려면 커스텀 OIDC 가 필요한데,
+  /// v1 에서는 하지 않기로 했다. 게스트처럼 Supabase 세션이 없으므로
+  /// 서버 API(맞춤 추천 등)는 쓰지 못한다.
+  Future<AuthState> signInWithNaver() async {
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+    return const AuthState(
+      status: AuthStatus.authenticated,
+      provider: AuthProvider.naver,
+      userId: 'mock_naver_1',
+      displayName: '네이버 테스트 유저',
+    );
+  }
+
   /// 애플 로그인 — v1 제외 (안드로이드 전용 앱).
   Future<AuthState> signInWithApple() async {
     throw UnimplementedError('애플 로그인 미구현');

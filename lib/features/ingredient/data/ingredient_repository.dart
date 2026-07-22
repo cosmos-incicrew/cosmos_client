@@ -1,46 +1,187 @@
+import 'package:dio/dio.dart';
+
+import '../../../core/config/env.dart';
+import '../../bsti/bsti.dart';
+import '../../bsti/bsti_name_matcher.dart';
+import '../../product/data/models/product_compare.dart';
 import 'models/ingredient.dart';
+import 'models/ingredient_insight.dart';
 
-/// 성분 데이터 접근.
+/// 성분 데이터 접근 — cosmos_server `/api/v1/ingredients/*` 연동.
 ///
-/// ⚠️ 아직 백엔드가 붙지 않아 전부 빈 결과를 돌려준다.
-/// 백엔드 연동은 **이 클래스의 메서드 본문만** 바꾸면 끝난다.
+/// 모든 호출에 Supabase JWT가 필요하다 (dio 인터셉터가 자동 첨부).
+/// `API_BASE_URL` 이 비어 있으면 호출하지 않고 빈 결과를 돌려준다.
 ///
-/// 각 메서드의 `TODO(BE)` 주석에 필요한 엔드포인트와 응답 스키마를 적어두었다.
-/// 전체 목록은 `grep -rn "TODO(BE)" lib/` 또는 [docs/api-contract.md] 참고.
+/// ⚠️ 서버 필드명은 `name_kr` / `name_en` 이다 (프론트 모델의
+/// `name_kor` / `name_eng` 와 다름). 여기서 명시적으로 매핑한다 —
+/// Ingredient.fromJson 을 그대로 쓰면 조용히 null 로 파싱된다.
 class IngredientRepository {
-  const IngredientRepository();
+  IngredientRepository(this._dio);
 
-  /// 성분 검색 — 한글명 또는 영문명 부분일치(대소문자 무시).
-  ///
-  /// TODO(BE): GET /ingredients/search?q={query}
-  ///   응답: [{"ingredient_id": 101, "name_kor": "글리세린",
-  ///           "name_eng": "Glycerin", "efficacy": "...",
-  ///           "recommended_skin_type": "모든 피부",
-  ///           "bsti_ingredient_id": "gly"}]
-  Future<List<Ingredient>> search(String query) async => const [];
+  final Dio _dio;
 
-  /// id 목록으로 성분 조회 — 제품 상세의 성분 목록.
+  /// 서버 성분 id → BSTI 성분 id 인덱스 (앱 실행 동안 캐시).
   ///
-  /// ⚠️ **입력 [ids] 순서를 그대로 유지해야 한다.**
-  /// 제품 상세가 앞에서 3개를 잘라 "대표성분"으로 보여주기 때문에,
-  /// 순서가 바뀌면 대표성분이 조용히 달라진다.
-  /// SQL `WHERE id IN (...)` 는 순서를 보장하지 않으므로,
-  /// 서버에서 정렬하거나 클라이언트에서 [ids] 기준으로 다시 정렬할 것.
-  /// 없는 id는 그냥 빠진다 (에러 아님).
+  /// 서버 DB에 매핑이 없어 프론트가 이름으로 잇는다 — BSTI 는 프론트 완결.
+  Map<int, String>? _bstiIndex;
+
+  /// 성분 검색 — 이명(한글·영문) 부분일치.
   ///
-  /// TODO(BE): GET /ingredients?ids=101,102,103
+  /// GET /api/v1/ingredients/search?q={query}&limit=20
+  /// 응답: {"query": "...", "results": [
+  ///        {"ingredient_id", "name_kr", "name_en"}]}
+  Future<List<Ingredient>> search(String query) async {
+    if (!Env.hasApi || query.isEmpty) return const [];
+
+    final res = await _dio.get<Map<String, dynamic>>(
+      '/api/v1/ingredients/search',
+      queryParameters: {'q': query},
+    );
+    final results = (res.data?['results'] as List?) ?? const [];
+    return [
+      for (final raw in results.cast<Map<String, dynamic>>())
+        Ingredient(
+          id: raw['ingredient_id'] as int,
+          nameKor: raw['name_kr'] as String?,
+          // 모델의 nameEng 는 필수 — 영문명이 없으면 한글명으로 채운다.
+          nameEng: (raw['name_en'] ?? raw['name_kr'] ?? '') as String,
+        ),
+    ];
+  }
+
+  /// ① 개별 성분 해설 — 성분 토글(자세히보기)에서 클릭 시 호출.
+  ///
+  /// GET /api/v1/ingredients/{id}/detail
+  /// status "확인 불가"는 **에러가 아니다** (name 은 채워져 옴) —
+  /// 정상 화면에 "아직 정보가 없습니다"를 띄운다. 404 만 잘못된 id.
+  /// 502 GENERATION_FAILED / 503 EVIDENCE_UNAVAILABLE → "잠시 후 다시 시도".
+  Future<IngredientDetail> getDetail(int ingredientId) async {
+    if (!Env.hasApi) {
+      throw StateError('API_BASE_URL 미설정 — 성분 해설은 서버가 필요합니다');
+    }
+    final res = await _dio.get<Map<String, dynamic>>(
+      '/api/v1/ingredients/$ingredientId/detail',
+    );
+    return IngredientDetail.fromJson(res.data ?? const {});
+  }
+
+  /// ② 단일 제품 요약 — 제품 상세 상단 (대표성분 Top-3 + 해설).
+  ///
+  /// POST /api/v1/ingredients/product-summary
+  /// [ingredientIds] 는 검색엔진이 준 **배합순 그대로** 넘긴다 —
+  /// 앞쪽 성분이 대표성분이 된다. 요청 성분이 하나도 없을 때만 404.
+  /// summary 의 "주의:" 줄은 [splitCaution] 으로 분리해 강조한다.
+  Future<ProductSummary> getProductSummary(List<int> ingredientIds) async {
+    if (!Env.hasApi) {
+      throw StateError('API_BASE_URL 미설정 — 제품 요약은 서버가 필요합니다');
+    }
+    final res = await _dio.post<Map<String, dynamic>>(
+      '/api/v1/ingredients/product-summary',
+      data: {'ingredient_ids': ingredientIds},
+    );
+    return ProductSummary.fromJson(res.data ?? const {});
+  }
+
+  /// ③ 다중 제품 비교 해설 — 비교 화면 하단.
+  ///
+  /// POST /api/v1/ingredients/comparison-summary
+  /// 요청 본문은 compare(검색엔진) 응답을 **그대로** 넣는다 (명세 지시 —
+  /// [ProductCompareResult.toJson] 이 그 형태다).
+  ///
+  /// 해설은 성분 **구성의 차이**만 말한다 — 제품 간 우열·추천은 오지 않는다.
+  Future<ComparisonSummary> getComparisonSummary(
+    ProductCompareResult compareResult,
+  ) async {
+    if (!Env.hasApi) {
+      throw StateError('API_BASE_URL 미설정 — 비교 해설은 서버가 필요합니다');
+    }
+    final res = await _dio.post<Map<String, dynamic>>(
+      '/api/v1/ingredients/comparison-summary',
+      data: compareResult.toJson(),
+    );
+    return ComparisonSummary.fromJson(res.data ?? const {});
+  }
+
+  /// id 목록으로 성분 조회 — 제품 상세의 성분 목록. **입력 순서 유지.**
+  ///
+  /// TODO(BE): 일괄 조회 엔드포인트가 서버에 없다.
+  ///   있는 것: GET /api/v1/ingredients/{id}/detail (LLM 해설 — 목록용으로는 무거움)
+  ///           POST /api/v1/ingredients/product-summary (대표성분+요약 —
+  ///           제품 상세를 이쪽으로 개편하는 게 서버 설계와 맞다)
+  ///   제안: GET /api/v1/ingredients?ids=101,102 (배열 순서 = 요청 순서)
   Future<List<Ingredient>> getByIds(List<int> ids) async => const [];
 
-  /// 제품들이 가진 BSTI 성분 id — 보고서 적합도 계산용.
+  /// 제품들이 가진 BSTI 성분 id — 보고서 적합도 계산용 (배치).
   ///
-  /// 반환: `{제품 id: [BSTI 성분 id, ...]}`
-  /// 제품마다 한 번씩 부르지 않도록 **배치로** 받는다.
+  /// BSTI 는 프론트 완결이다. 서버 DB에 매핑이 없으므로:
+  ///  1. BSTI 사전 34개를 서버 검색으로 찾아 `서버 id → BSTI id` 인덱스 구성
+  ///     (한글명·INCI **정확 일치**만 인정 — 앱 실행 동안 캐시)
+  ///  2. 제품마다 GET /api/v1/products/{id}/ingredients 로 성분 id 를 받아
+  ///     인덱스와 교차
   ///
-  /// TODO(BE): GET /products/bsti-ingredients?product_ids=1,2,3
-  ///   응답: {"1": ["cera", "gly"], "2": ["niac"]}
-  ///   bsti_ingredient_id 가 없는 성분은 제외한다.
+  /// 이름 표기가 서버와 달라 매칭이 안 된 성분은 그냥 빠진다 —
+  /// 보고서가 "판단 정보 부족"으로 표시할 뿐, 틀린 점수를 만들지 않는다.
   Future<Map<int, List<String>>> bstiIdsByProducts(
     List<int> productIds,
-  ) async =>
-      const {};
+  ) async {
+    if (!Env.hasApi || productIds.isEmpty) return const {};
+
+    final index = await _buildBstiIndex();
+    if (index.isEmpty) return const {};
+
+    final out = <int, List<String>>{};
+    for (final pid in productIds) {
+      List<int> serverIds;
+      try {
+        final res = await _dio.get<Map<String, dynamic>>(
+          '/api/v1/products/$pid/ingredients',
+        );
+        serverIds =
+            ((res.data?['ingredient_ids'] as List?) ?? const []).cast<int>();
+      } on DioException {
+        // 404(없는 제품)·422(분석 불가) 등 — 이 제품만 건너뛴다.
+        continue;
+      }
+      out[pid] = [
+        for (final id in serverIds)
+          if (index[id] != null) index[id]!,
+      ];
+    }
+    return out;
+  }
+
+  /// BSTI 사전 34개를 서버에서 찾아 `서버 성분 id → BSTI id` 인덱스를 만든다.
+  ///
+  /// 성분당 검색 1회(한글명), 실패·불일치 시 INCI 로 1회 더 — 최대 68회지만
+  /// 앱 실행당 한 번이고 서버 검색은 가벼운 ILIKE 쿼리다.
+  Future<Map<int, String>> _buildBstiIndex() async {
+    final cached = _bstiIndex;
+    if (cached != null) return cached;
+
+    final index = <int, String>{};
+    await Future.wait([
+      for (final bsti in kBstiIngredients.values)
+        _indexOne(bsti, index),
+    ]);
+    return _bstiIndex = index;
+  }
+
+  Future<void> _indexOne(BstiIngredient bsti, Map<int, String> index) async {
+    // 한글명 먼저, 안 잡히면 INCI. 후보 중 **정확 일치**만 채택한다.
+    for (final query in [bsti.nameKo, if (bsti.inci != null) bsti.inci!]) {
+      List<Ingredient> candidates;
+      try {
+        candidates = await search(query);
+      } on Object {
+        continue; // 검색 하나 실패해도 나머지 인덱스는 만든다.
+      }
+      for (final c in candidates) {
+        final matched = bstiIdForNames(nameKr: c.nameKor, nameEn: c.nameEng);
+        if (matched == bsti.id) {
+          index[c.id] = bsti.id;
+          return;
+        }
+      }
+    }
+  }
 }

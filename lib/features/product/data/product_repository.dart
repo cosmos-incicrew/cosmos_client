@@ -1,53 +1,111 @@
+import 'package:dio/dio.dart';
+
+import '../../../core/config/env.dart';
 import 'models/product.dart';
+import 'models/product_compare.dart';
 
-/// 제품 데이터 접근.
+/// 제품 데이터 접근 — cosmos_server `/api/v1/products/*` 연동.
 ///
-/// ⚠️ 아직 백엔드가 붙지 않아 전부 빈 결과를 돌려준다.
-/// 백엔드 연동은 **이 클래스의 메서드 본문만** 바꾸면 끝난다 —
-/// 화면·프로바이더는 손대지 않아도 된다.
+/// 모든 호출에 Supabase JWT가 필요하다 (dio 인터셉터가 자동 첨부).
+/// `API_BASE_URL` 이 비어 있으면 호출하지 않고 빈 결과를 돌려준다.
 ///
-/// 각 메서드의 `TODO(BE)` 주석에 필요한 엔드포인트와 응답 스키마를 적어두었다.
-/// 전체 목록은 `grep -rn "TODO(BE)" lib/` 또는 [docs/api-contract.md] 참고.
+/// 아직 백엔드에 없는 엔드포인트는 `TODO(BE)` 로 남겨두었다.
+/// 전체 계약은 [docs/api-contract.md] 참고.
 class ProductRepository {
-  const ProductRepository();
+  const ProductRepository(this._dio);
 
-  /// 제품 검색 — 이름 또는 브랜드 부분일치(대소문자 무시).
+  final Dio _dio;
+
+  /// 제품 검색 — 제품명 부분일치.
   ///
-  /// 빈 문자열이면 호출되지 않는다 (화면에서 막는다).
+  /// GET /api/v1/products/search?q={query}&limit=20
+  /// 응답: {"query": "...", "results": [{"id", "product_name", "brand",
+  ///        "main_category", "sub_category", "detailed_category", "product_url"}]}
   ///
-  /// TODO(BE): GET /products/search?q={query}
-  ///   응답: [{"product_id": 1, "product_name": "...", "brand": "...",
-  ///           "main_category": "스킨케어", "sub_category": "크림",
-  ///           "ingredient_ids": [101, 102]}]
-  ///   교체 예시:
-  ///     final res = await _dio.get('/products/search',
-  ///         queryParameters: {'q': query});
-  ///     return (res.data as List)
-  ///         .map((e) => Product.fromJson(e as Map<String, dynamic>))
-  ///         .toList();
-  Future<List<Product>> search(String query) async => const [];
+  /// ⚠️ 검색 응답에는 ingredient_ids 가 없다 — 필요하면
+  /// [getIngredientIds] 로 따로 받는다 (백엔드가 2단계로 설계함).
+  Future<List<Product>> search(String query) async {
+    if (!Env.hasApi || query.isEmpty) return const [];
+
+    final res = await _dio.get<Map<String, dynamic>>(
+      '/api/v1/products/search',
+      queryParameters: {'q': query},
+    );
+    final results = (res.data?['results'] as List?) ?? const [];
+    return [
+      for (final raw in results.cast<Map<String, dynamic>>())
+        Product(
+          id: raw['id'] as int,
+          name: raw['product_name'] as String,
+          brand: raw['brand'] as String?,
+          mainCategory: raw['main_category'] as String?,
+          subCategory: raw['sub_category'] as String?,
+          productUrl: raw['product_url'] as String?,
+        ),
+    ];
+  }
+
+  /// 제품의 확정 성분 id 목록 (배합 순서).
+  ///
+  /// GET /api/v1/products/{id}/ingredients
+  /// 응답: {"id", "product_name", "ingredient_ids": [...],
+  ///        "mapped_ingredient_count", "unmapped_ingredient_count",
+  ///        "restricted_ingredients": [...]}
+  ///
+  /// 404 PRODUCT_NOT_FOUND / 422 PRODUCT_NOT_ANALYZABLE 이 올 수 있다.
+  Future<List<int>> getIngredientIds(int productId) async {
+    if (!Env.hasApi) return const [];
+
+    final res = await _dio.get<Map<String, dynamic>>(
+      '/api/v1/products/$productId/ingredients',
+    );
+    return ((res.data?['ingredient_ids'] as List?) ?? const []).cast<int>();
+  }
+
+  /// 다중 제품 비교 — 성분이 어느 제품에 공통/개별로 들었는지.
+  ///
+  /// POST /api/v1/products/compare  { "product_ids": [101, 102] }
+  /// 제품 2~4개 (4개 제한은 MVP 초기값 — 서버가 바꿀 수 있다).
+  ///
+  /// 후속 성분 정보 요청에는 응답의 `ingredient_ids` 를 **그대로** 쓴다
+  /// (중복 제거돼 있음 — presence 에서 다시 모으지 말 것, 명세서 지시).
+  ///
+  /// 실패는 전체 실패다 — 한 제품이라도 문제면 부분 결과 없이 에러가 온다:
+  ///   400 DUPLICATE_PRODUCT_IDS / PRODUCT_COMPARE_LIMIT_EXCEEDED
+  ///   404 PRODUCT_NOT_FOUND
+  ///   422 PRODUCT_NOT_ANALYZABLE / VALIDATION_ERROR (2개 미만)
+  /// 화면은 DioException.response 의 error.code 로 안내를 구분한다.
+  Future<ProductCompareResult> compare(List<int> productIds) async {
+    if (!Env.hasApi) {
+      // 비교는 명시적 사용자 액션이라 빈 결과로 얼버무리면 오해를 만든다.
+      throw StateError('API_BASE_URL 미설정 — 제품 비교는 서버가 필요합니다');
+    }
+    final res = await _dio.post<Map<String, dynamic>>(
+      '/api/v1/products/compare',
+      data: {'product_ids': productIds},
+    );
+    return ProductCompareResult.fromJson(res.data ?? const {});
+  }
 
   /// 전체 제품 — 추천 화면이 카테고리별로 묶어 쓴다.
   ///
-  /// TODO(BE): GET /products
-  ///   목록이 커지면 페이지네이션이 필요하다. 그 경우 이 메서드 대신
-  ///   카테고리별 조회로 바꾸고 추천 프로바이더도 함께 수정할 것.
+  /// TODO(BE): 전체 목록 엔드포인트가 서버에 없다.
+  ///   실제 추천은 POST /api/v1/recommendations (RAG 파이프라인)로 가는 게
+  ///   맞고, 그 응답은 성분 중심이라 추천 화면 개편이 함께 필요하다.
+  ///   백엔드 담당과 협의 전까지 빈 결과 유지.
   Future<List<Product>> listAll() async => const [];
 
   /// 특정 성분을 포함한 제품들 — 성분 상세에서 "이 성분이 든 제품".
   ///
-  /// TODO(BE): GET /ingredients/{ingredientId}/products
+  /// TODO(BE): 성분→제품 역조회 엔드포인트가 서버에 없다.
+  ///   제안: GET /api/v1/ingredients/{ingredientId}/products
   Future<List<Product>> getByIngredient(int ingredientId) async => const [];
 
   /// 특정 BSTI 성분(예: 'niac')을 가진 제품 — 보고서의 "이 제품을 추천해요".
   ///
-  /// [exclude] 는 이미 화장대에 담아 다시 추천하면 안 되는 제품 id.
-  /// [limit] 개까지만 돌려준다.
-  ///
-  /// TODO(BE): GET /products?bsti_ingredient={bstiId}&limit={limit}
-  ///   제품→성분→bsti_ingredient_id 조인이 필요하다.
-  ///   [exclude] 는 응답이 적으므로 클라이언트에서 걸러도 되지만,
-  ///   서버에서 처리하면 왕복이 준다.
+  /// TODO(BE): 서버 DB에 bsti_ingredient_id 매핑 자체가 없다
+  ///   (supabase/migrations/001_create_ingredients.sql 참고).
+  ///   매핑 컬럼(또는 매핑 테이블) 추가를 백엔드에 요청해야 한다.
   Future<List<Product>> findByBstiIngredient(
     String bstiId, {
     Set<int> exclude = const {},
