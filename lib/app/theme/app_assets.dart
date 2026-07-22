@@ -55,6 +55,9 @@ class AppAssets {
   /// My-Skin ITEM — "나와 베스트 궁합 제품 추천".
   static const String homeMyItem = '$_home/my_skin_item.png';
 
+  /// My-Skin ITEM 옆 장식 — 우주복 고양이 "제품추천 완료".
+  static const String homeMyItemCat = '$_home/my_item_cat.png';
+
   /// 화장대 일러스트 — 현재 화면에서 미사용 (예비).
   static const String homeShelfMake = '$_home/shelf_make.png';
 

@@ -143,14 +143,33 @@ class HomeScreen extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 12),
-        // 2행: My-Skin ITEM — 가로로 긴 이미지. 폭을 살짝만 좁힌다.
-        FractionallySizedBox(
-          widthFactor: 0.88,
-          child: _ImageButton(
-            asset: AppAssets.homeMyItem,
-            label: '나와 베스트 궁합 제품추천',
-            onTap: () => context.push('/recommendation'),
-          ),
+        // 2행: [우주복 고양이 장식] | [My-Skin ITEM]
+        // 1행과 같은 반반 구조라 My-Skin ITEM 폭 = BSTI 폭.
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Expanded(
+              // 장식 이미지 — 버튼 아님.
+              child: SizedBox(
+                height: 150,
+                child: Image.asset(
+                  AppAssets.homeMyItemCat,
+                  fit: BoxFit.contain,
+                  alignment: Alignment.bottomCenter,
+                  errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _ImageButton(
+                asset: AppAssets.homeMyItem,
+                label: '나와 베스트 궁합 제품추천',
+                height: 150,
+                onTap: () => context.push('/recommendation'),
+              ),
+            ),
+          ],
         ),
       ],
     );
