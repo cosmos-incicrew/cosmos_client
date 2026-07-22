@@ -67,9 +67,6 @@ class HomeScreen extends StatelessWidget {
             height: 34,
             errorBuilder: (_, __, ___) => const Icon(Icons.search,
                 color: AppColors.textPrimary, size: 32)),
-        const SizedBox(width: 8),
-        Text('제품·성분',
-            style: AppTextStyles.title.copyWith(color: AppColors.textPrimary)),
         const SizedBox(width: 10),
         Expanded(
           child: GestureDetector(
@@ -105,6 +102,8 @@ class HomeScreen extends StatelessWidget {
       asset: AppAssets.homeShelfScoreBanner,
       // START 버튼만 커진 버전 — 이미지가 들어오면 자동으로 교체된다.
       hoverAsset: AppAssets.homeShelfScoreBannerHover,
+      // 원본 PNG 모서리가 각져 있어 둥글게 자른다.
+      borderRadius: BorderRadius.circular(18),
       label: '내 화장대 점수는??',
       onTap: () => context.push('/report'),
     );
@@ -117,8 +116,10 @@ class HomeScreen extends StatelessWidget {
     return Column(
       children: [
         // 1행: BSTI | 내 화장대 (정사각 이미지 2장 → 좌우 균등)
+        // 이미지 높이가 달라도 **하단선을 맞춘다** — 위가 어긋나는 건
+        // 여백으로 보이지만 아래가 어긋나면 흐트러져 보인다.
         Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.end,
           children: [
             Expanded(
               child: _ImageButton(
@@ -168,6 +169,7 @@ class _ImageButton extends StatefulWidget {
     required this.onTap,
     this.widthFactor = 1.0,
     this.hoverAsset,
+    this.borderRadius,
   });
 
   final String asset;
@@ -184,6 +186,9 @@ class _ImageButton extends StatefulWidget {
   /// 주어지면 스케일 효과 대신 **이미지 두 장 교체**로 반응한다.
   /// 파일이 아직 없으면 기본 이미지가 유지된다.
   final String? hoverAsset;
+
+  /// 이미지 모서리를 둥글게 자를 때 (원본 PNG 가 각져 있을 때).
+  final BorderRadius? borderRadius;
 
   @override
   State<_ImageButton> createState() => _ImageButtonState();
@@ -221,7 +226,9 @@ class _ImageButtonState extends State<_ImageButton> {
             child: FractionallySizedBox(
               widthFactor: widget.widthFactor,
               // 두 장을 겹쳐두고 투명도만 바꾼다 — 첫 호버에 로딩 깜빡임이 없다.
-              child: Stack(
+              child: ClipRRect(
+                borderRadius: widget.borderRadius ?? BorderRadius.zero,
+                child: Stack(
                 alignment: Alignment.center,
                 children: [
                   Opacity(
@@ -258,6 +265,7 @@ class _ImageButtonState extends State<_ImageButton> {
                       ),
                     ),
                 ],
+              ),
               ),
             ),
           ),
