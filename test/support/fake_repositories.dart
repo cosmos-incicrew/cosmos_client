@@ -7,6 +7,8 @@
 import 'package:cosmos_app/features/ingredient/data/ingredient_providers.dart';
 import 'package:cosmos_app/features/ingredient/data/ingredient_repository.dart';
 import 'package:cosmos_app/features/ingredient/data/models/ingredient.dart';
+import 'package:cosmos_app/features/onboarding/data/profile_repository.dart';
+import 'package:cosmos_app/features/onboarding/data/profile_store.dart';
 import 'package:cosmos_app/features/product/data/models/product.dart';
 import 'package:cosmos_app/features/product/data/product_providers.dart';
 import 'package:cosmos_app/features/product/data/product_repository.dart';
@@ -139,9 +141,26 @@ class FakeIngredientRepository implements IngredientRepository {
   }
 }
 
+/// 서버에 안 나가는 프로필 저장소.
+///
+/// BSTI 저장이 프로필 POST 를 타므로, 이게 없으면 테스트가 실제 HTTP 를 시도한다.
+class FakeProfileRepository implements ProfileRepository {
+  const FakeProfileRepository();
+
+  @override
+  Future<UserProfile?> fetch() async => null;
+
+  @override
+  Future<void> save(UserProfile profile) async {}
+
+  @override
+  Future<void> deleteAccount() async {}
+}
+
 /// 테스트용 저장소 override 모음. `ProviderContainer(overrides: fakeRepos)`.
 final fakeRepos = <Override>[
   productRepositoryProvider.overrideWithValue(const FakeProductRepository()),
   ingredientRepositoryProvider
       .overrideWithValue(const FakeIngredientRepository()),
+  profileRepositoryProvider.overrideWithValue(const FakeProfileRepository()),
 ];

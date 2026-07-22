@@ -6,7 +6,7 @@
 // ignore_for_file: depend_on_referenced_packages
 import 'package:cosmos_app/app/theme/app_theme.dart';
 import 'package:cosmos_app/features/bsti/bsti_result_screen.dart';
-import 'package:cosmos_app/features/bsti/bsti_result_store.dart';
+import 'package:cosmos_app/features/onboarding/data/profile_store.dart';
 import 'package:cosmos_app/features/ingredient/data/models/ingredient.dart';
 import 'package:cosmos_app/features/my_shelf/data/shelf_preference.dart';
 import 'package:cosmos_app/features/my_shelf/presentation/screens/ingredient_detail_screen.dart';
@@ -21,6 +21,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:cosmos_app/features/onboarding/data/profile_repository.dart';
+
+import 'support/fake_repositories.dart';
+
 void main() {
   /// 화면 하나를 폰 크기로 띄우고, 예외 없이 안착하는지 본다.
   Future<ProviderContainer> show(
@@ -32,7 +36,11 @@ void main() {
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
 
-    final container = ProviderContainer();
+    // BSTI 저장이 프로필 POST 를 타므로 서버에 안 나가는 대역만 끼운다.
+    // (제품·성분까지 페이크로 바꾸면 화면에 그려지는 내용이 달라진다)
+    final container = ProviderContainer(overrides: [
+      profileRepositoryProvider.overrideWithValue(const FakeProfileRepository()),
+    ]);
     addTearDown(container.dispose);
     setup?.call(container);
 
@@ -122,7 +130,7 @@ void main() {
 
   testWidgets('보고서 — 검사 + 제품 담아도 안 터진다', (tester) async {
     await show(tester, const ReportScreen(), setup: (c) {
-      c.read(bstiResultProvider.notifier).save('OSPW');
+      c.read(userProfileProvider.notifier).saveBstiType('OSPW');
       c.read(shelfPreferenceProvider.notifier).add(const ShelfEntry(
             id: 1,
             name: '샘플 제품',
