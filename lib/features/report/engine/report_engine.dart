@@ -8,9 +8,21 @@ class ProductMatch {
     required this.recommendHits,
     required this.avoidHits,
     required this.score,
+    this.productId,
+    this.recommendIds = const [],
+    this.avoidIds = const [],
   });
 
   final String name;
+
+  /// 제품 id — 제품 상세로 이동할 때 쓴다.
+  final int? productId;
+
+  /// 이 제품에서 실제로 매칭된 권장 성분 (BSTI id) — 토글로 펼쳐 보여준다.
+  final List<String> recommendIds;
+
+  /// 이 제품에서 실제로 매칭된 주의 성분 (BSTI id).
+  final List<String> avoidIds;
 
   /// 내 유형의 권장성분과 겹친 개수.
   final int recommendHits;
@@ -40,7 +52,26 @@ class ShelfReport {
     required this.matches,
     required this.totalScore,
     this.missingIngredientIds = const [],
+    this.conflicts = const [],
   });
+
+  /// 화장대 제품 **여러 개에 겹치는 규제 성분** — 함께 쓰면 과할 수 있는 조합.
+  /// 서버 비교 API(POST /products/compare)의 규제 정보로 계산한다.
+  final List<ConflictIngredient> conflicts;
+
+  /// 충돌 반영 사본 — 총점에서 충돌당 7점을 감점한다 (0 미만 방지).
+  /// 감점 근거는 [details] 에 그대로 드러난다 (몰래 깎지 않는다).
+  ShelfReport withConflicts(List<ConflictIngredient> found) {
+    final t = totalScore;
+    return ShelfReport(
+      typeCode: typeCode,
+      matches: matches,
+      totalScore:
+          t == null ? null : (t - 7 * found.length).clamp(0, 100),
+      missingIngredientIds: missingIngredientIds,
+      conflicts: found,
+    );
+  }
 
   /// 내 BSTI 유형 코드. 검사 전이면 null.
   final String? typeCode;
@@ -113,6 +144,12 @@ class ShelfReport {
       lines.add('$unknown개는 성분 정보가 없어 점수를 매기지 못했어요');
     }
 
+    if (conflicts.isNotEmpty) {
+      final names = conflicts.map((c) => c.nameKr).take(2).join(', ');
+      lines.add('제품끼리 겹치는 규제 성분 ${conflicts.length}개 ($names…) — '
+          '함께 쓰면 과할 수 있어 감점했어요');
+    }
+
     return lines;
   }
 }
@@ -136,24 +173,35 @@ class ReportEngine {
     required String? typeCode,
     required List<ShelfEntry> entries,
     required List<String> Function(int productId) ingredientIdsOf,
+    Set<String> extraRecommendIds = const {},
   }) {
     final type = typeCode == null ? null : kBstiSkinTypes[typeCode];
     final products = entries.where((e) => e.isProduct).toList();
 
-    if (type == null) {
+    // 피부고민 권장 성분(extraRecommendIds)은 유형과 무관하게 반영한다 —
+    // 검사 전이어도 고민만으로 부분 평가가 가능하다.
+    if (type == null && extraRecommendIds.isEmpty) {
       return ShelfReport(
         typeCode: typeCode,
         matches: [
           for (final p in products)
             ProductMatch(
-                name: p.name, recommendHits: 0, avoidHits: 0, score: null),
+                name: p.name,
+                productId: p.id,
+                recommendHits: 0,
+                avoidHits: 0,
+                score: null),
         ],
         totalScore: null,
       );
     }
 
-    final recommendIds = type.recommend.map((e) => e.ingredientId).toSet();
-    final avoidIds = type.avoid.map((e) => e.ingredientId).toSet();
+    final recommendIds = <String>{
+      ...?type?.recommend.map((e) => e.ingredientId),
+      ...extraRecommendIds, // 피부고민 권장 성분 합산
+    };
+    final avoidIds =
+        type?.avoid.map((e) => e.ingredientId).toSet() ?? const <String>{};
 
     // 화장대 제품들이 통틀어 갖고 있는 성분 (부족분 계산용).
     final owned = <String>{};
@@ -162,14 +210,19 @@ class ReportEngine {
     for (final p in products) {
       final ids = ingredientIdsOf(p.id).toSet();
       owned.addAll(ids);
-      final rec = ids.intersection(recommendIds).length;
-      final avo = ids.intersection(avoidIds).length;
+      final recMatched = ids.intersection(recommendIds).toList()..sort();
+      final avoMatched = ids.intersection(avoidIds).toList()..sort();
+      final rec = recMatched.length;
+      final avo = avoMatched.length;
       final total = rec + avo;
 
       matches.add(ProductMatch(
         name: p.name,
+        productId: p.id,
         recommendHits: rec,
         avoidHits: avo,
+        recommendIds: recMatched,
+        avoidIds: avoMatched,
         // 근거가 없으면 점수를 만들지 않는다.
         score: total == 0 ? null : (rec / total * 100).round(),
       ));
@@ -184,8 +237,9 @@ class ReportEngine {
     // 권장 성분인데 화장대 어디에도 없는 것 = 부족 성분.
     // (유형 데이터의 sortOrder 순서를 그대로 따른다 — 중요한 것부터)
     final missing = [
-      for (final link in type.recommend)
-        if (!owned.contains(link.ingredientId)) link.ingredientId,
+      if (type != null)
+        for (final link in type.recommend)
+          if (!owned.contains(link.ingredientId)) link.ingredientId,
     ];
 
     return ShelfReport(
@@ -195,4 +249,21 @@ class ReportEngine {
       missingIngredientIds: missing,
     );
   }
+}
+
+/// 화장대 제품 여러 개에 겹치는 규제 성분 하나.
+class ConflictIngredient {
+  const ConflictIngredient({
+    required this.nameKr,
+    required this.serverIngredientId,
+    required this.productNames,
+  });
+
+  final String nameKr;
+
+  /// 서버 성분 id — 성분 해설(①) 조회용.
+  final int serverIngredientId;
+
+  /// 이 성분이 든 화장대 제품 이름들 (2개 이상).
+  final List<String> productNames;
 }

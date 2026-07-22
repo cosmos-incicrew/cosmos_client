@@ -25,6 +25,23 @@ class IngredientRepository {
   /// 서버 DB에 매핑이 없어 프론트가 이름으로 잇는다 — BSTI 는 프론트 완결.
   Map<int, String>? _bstiIndex;
 
+  /// 첫 호출 콜드스타트 대응 — 타임아웃·연결 실패는 딱 1회 재시도한다.
+  ///
+  /// 서버·LLM 이 막 깨어난 직후의 첫 요청은 평소보다 수 배 느려서
+  /// "맨 처음 여는 제품/성분만 실패"하는 증상이 난다. 재시도 한 번이면
+  /// 워밍업이 끝나 있어 대부분 성공한다. (4xx 등 진짜 오류는 즉시 던진다)
+  Future<T> _retryOnce<T>(Future<T> Function() run) async {
+    try {
+      return await run();
+    } on DioException catch (e) {
+      final transient = e.type == DioExceptionType.receiveTimeout ||
+          e.type == DioExceptionType.connectionTimeout ||
+          e.type == DioExceptionType.connectionError;
+      if (!transient) rethrow;
+      return run();
+    }
+  }
+
   /// 성분 검색 — 이명(한글·영문) 부분일치.
   ///
   /// GET /api/v1/ingredients/search?q={query}&limit=20
@@ -59,9 +76,11 @@ class IngredientRepository {
     if (!Env.hasApi) {
       throw StateError('API_BASE_URL 미설정 — 성분 해설은 서버가 필요합니다');
     }
-    final res = await _dio.get<Map<String, dynamic>>(
-      '/api/v1/ingredients/$ingredientId/detail',
-    );
+    final res = await _retryOnce(() => _dio.get<Map<String, dynamic>>(
+          '/api/v1/ingredients/$ingredientId/detail',
+          // LLM 생성이라 오래 걸릴 수 있다 (Pro 모델 기준 ~30초 실측).
+          options: Options(receiveTimeout: const Duration(seconds: 45)),
+        ));
     return IngredientDetail.fromJson(res.data ?? const {});
   }
 
@@ -75,10 +94,11 @@ class IngredientRepository {
     if (!Env.hasApi) {
       throw StateError('API_BASE_URL 미설정 — 제품 요약은 서버가 필요합니다');
     }
-    final res = await _dio.post<Map<String, dynamic>>(
-      '/api/v1/ingredients/product-summary',
-      data: {'ingredient_ids': ingredientIds},
-    );
+    final res = await _retryOnce(() => _dio.post<Map<String, dynamic>>(
+          '/api/v1/ingredients/product-summary',
+          data: {'ingredient_ids': ingredientIds},
+          options: Options(receiveTimeout: const Duration(seconds: 45)),
+        ));
     return ProductSummary.fromJson(res.data ?? const {});
   }
 
@@ -95,21 +115,40 @@ class IngredientRepository {
     if (!Env.hasApi) {
       throw StateError('API_BASE_URL 미설정 — 비교 해설은 서버가 필요합니다');
     }
-    final res = await _dio.post<Map<String, dynamic>>(
-      '/api/v1/ingredients/comparison-summary',
-      data: compareResult.toJson(),
-    );
+    final res = await _retryOnce(() => _dio.post<Map<String, dynamic>>(
+          '/api/v1/ingredients/comparison-summary',
+          data: compareResult.toJson(),
+          options: Options(receiveTimeout: const Duration(seconds: 45)),
+        ));
     return ComparisonSummary.fromJson(res.data ?? const {});
   }
 
   /// id 목록으로 성분 조회 — 제품 상세의 성분 목록. **입력 순서 유지.**
   ///
-  /// TODO(BE): 일괄 조회 엔드포인트가 서버에 없다.
-  ///   있는 것: GET /api/v1/ingredients/{id}/detail (LLM 해설 — 목록용으로는 무거움)
-  ///           POST /api/v1/ingredients/product-summary (대표성분+요약 —
-  ///           제품 상세를 이쪽으로 개편하는 게 서버 설계와 맞다)
-  ///   제안: GET /api/v1/ingredients?ids=101,102 (배열 순서 = 요청 순서)
-  Future<List<Ingredient>> getByIds(List<int> ids) async => const [];
+  /// POST /api/v1/ingredients/names  {"ingredient_ids": [101, 102]}
+  /// 응답: {"ingredients": [{"ingredient_id", "name_kr", "name_en"}]}
+  /// 서버가 요청 순서를 유지하고, 없는 id는 이름 null 로 온다 — 그런 항목은
+  /// 거른다 (이름 없는 성분은 화면에 쓸 수 없다).
+  Future<List<Ingredient>> getByIds(List<int> ids) async {
+    if (!Env.hasApi || ids.isEmpty) return const [];
+
+    final res = await _retryOnce(() => _dio.post<Map<String, dynamic>>(
+          '/api/v1/ingredients/names',
+          data: {'ingredient_ids': ids},
+          // 기본(15초)으론 첫 진입 혼잡 때 잘린다 — LLM 은 아니라 30초면 충분.
+          options: Options(receiveTimeout: const Duration(seconds: 30)),
+        ));
+    final rows = (res.data?['ingredients'] as List?) ?? const [];
+    return [
+      for (final raw in rows.cast<Map<String, dynamic>>())
+        if (raw['name_kr'] != null)
+          Ingredient(
+            id: raw['ingredient_id'] as int,
+            nameKor: raw['name_kr'] as String?,
+            nameEng: (raw['name_en'] ?? raw['name_kr'] ?? '') as String,
+          ),
+    ];
+  }
 
   /// 제품들이 가진 BSTI 성분 id — 보고서 적합도 계산용 (배치).
   ///
