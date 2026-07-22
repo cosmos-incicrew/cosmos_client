@@ -125,6 +125,8 @@ class HomeScreen extends StatelessWidget {
               child: _ImageButton(
                 asset: AppAssets.homeBsti,
                 label: 'BSTI 피부타입 검사',
+                // 옆 버튼과 비율이 달라도 같은 높이·하단선.
+                height: 150,
                 onTap: () => context.push('/bsti'),
               ),
             ),
@@ -133,6 +135,7 @@ class HomeScreen extends StatelessWidget {
               child: _ImageButton(
                 asset: AppAssets.homeShelf,
                 label: '내 화장대 만들기',
+                height: 150,
                 // 화장대(담은 리스트)로. 담기는 거기 검색창에서 한다.
                 onTap: () => context.go('/shelf'),
               ),
@@ -165,6 +168,7 @@ class _ImageButton extends StatefulWidget {
     required this.onTap,
     this.hoverAsset,
     this.borderRadius,
+    this.height,
   });
 
   final String asset;
@@ -180,6 +184,10 @@ class _ImageButton extends StatefulWidget {
 
   /// 이미지 모서리를 둥글게 자를 때 (원본 PNG 가 각져 있을 때).
   final BorderRadius? borderRadius;
+
+  /// 지정하면 이 높이 상자에 **하단 기준**으로 이미지를 맞춘다 —
+  /// 비율이 다른 이미지들(정사각 vs 가로형)의 높이·하단선을 통일할 때.
+  final double? height;
 
   @override
   State<_ImageButton> createState() => _ImageButtonState();
@@ -215,7 +223,9 @@ class _ImageButtonState extends State<_ImageButton> {
             duration: const Duration(milliseconds: 120),
             curve: Curves.easeOut,
             // 두 장을 겹쳐두고 투명도만 바꾼다 — 첫 호버에 로딩 깜빡임이 없다.
-            child: ClipRRect(
+            child: SizedBox(
+              height: widget.height,
+              child: ClipRRect(
                 borderRadius: widget.borderRadius ?? BorderRadius.zero,
                 child: Stack(
                 alignment: Alignment.center,
@@ -225,6 +235,9 @@ class _ImageButtonState extends State<_ImageButton> {
                     child: Image.asset(
                       widget.asset,
                       fit: BoxFit.contain,
+                      alignment: widget.height != null
+                          ? Alignment.bottomCenter
+                          : Alignment.center,
                       errorBuilder: (_, __, ___) => Container(
                         height: 100,
                         decoration: BoxDecoration(
@@ -247,6 +260,9 @@ class _ImageButtonState extends State<_ImageButton> {
                         child: Image.asset(
                           widget.hoverAsset!,
                           fit: BoxFit.contain,
+                          alignment: widget.height != null
+                              ? Alignment.bottomCenter
+                              : Alignment.center,
                           // 호버 이미지가 아직 없으면 조용히 기본 유지.
                           errorBuilder: (_, __, ___) =>
                               const SizedBox.shrink(),
@@ -256,6 +272,7 @@ class _ImageButtonState extends State<_ImageButton> {
                 ],
                 ),
               ),
+            ),
             ),
           ),
       ),
