@@ -1,6 +1,8 @@
 import 'package:dio/dio.dart';
 
 import '../../../core/config/env.dart';
+import '../../bsti/bsti.dart';
+import '../../bsti/bsti_name_matcher.dart';
 import 'models/ingredient.dart';
 
 /// 성분 데이터 접근 — cosmos_server `/api/v1/ingredients/*` 연동.
@@ -12,9 +14,14 @@ import 'models/ingredient.dart';
 /// `name_kor` / `name_eng` 와 다름). 여기서 명시적으로 매핑한다 —
 /// Ingredient.fromJson 을 그대로 쓰면 조용히 null 로 파싱된다.
 class IngredientRepository {
-  const IngredientRepository(this._dio);
+  IngredientRepository(this._dio);
 
   final Dio _dio;
+
+  /// 서버 성분 id → BSTI 성분 id 인덱스 (앱 실행 동안 캐시).
+  ///
+  /// 서버 DB에 매핑이 없어 프론트가 이름으로 잇는다 — BSTI 는 프론트 완결.
+  Map<int, String>? _bstiIndex;
 
   /// 성분 검색 — 이명(한글·영문) 부분일치.
   ///
@@ -51,13 +58,75 @@ class IngredientRepository {
 
   /// 제품들이 가진 BSTI 성분 id — 보고서 적합도 계산용 (배치).
   ///
-  /// TODO(BE): 서버 DB에 bsti_ingredient_id 매핑 자체가 없다
-  ///   (ingredients 테이블: ingredient_id·name_kr·name_en·cas_no… 뿐).
-  ///   보고서의 적합도 점수·부족 성분 추천이 전부 이 매핑에 걸려 있으므로,
-  ///   매핑 추가를 백엔드에 요청해야 한다. 그 전까지 빈 결과 유지
-  ///   (보고서는 "판단 정보 부족"으로 표시된다 — 지어내지 않는다).
+  /// BSTI 는 프론트 완결이다. 서버 DB에 매핑이 없으므로:
+  ///  1. BSTI 사전 34개를 서버 검색으로 찾아 `서버 id → BSTI id` 인덱스 구성
+  ///     (한글명·INCI **정확 일치**만 인정 — 앱 실행 동안 캐시)
+  ///  2. 제품마다 GET /api/v1/products/{id}/ingredients 로 성분 id 를 받아
+  ///     인덱스와 교차
+  ///
+  /// 이름 표기가 서버와 달라 매칭이 안 된 성분은 그냥 빠진다 —
+  /// 보고서가 "판단 정보 부족"으로 표시할 뿐, 틀린 점수를 만들지 않는다.
   Future<Map<int, List<String>>> bstiIdsByProducts(
     List<int> productIds,
-  ) async =>
-      const {};
+  ) async {
+    if (!Env.hasApi || productIds.isEmpty) return const {};
+
+    final index = await _buildBstiIndex();
+    if (index.isEmpty) return const {};
+
+    final out = <int, List<String>>{};
+    for (final pid in productIds) {
+      List<int> serverIds;
+      try {
+        final res = await _dio.get<Map<String, dynamic>>(
+          '/api/v1/products/$pid/ingredients',
+        );
+        serverIds =
+            ((res.data?['ingredient_ids'] as List?) ?? const []).cast<int>();
+      } on DioException {
+        // 404(없는 제품)·422(분석 불가) 등 — 이 제품만 건너뛴다.
+        continue;
+      }
+      out[pid] = [
+        for (final id in serverIds)
+          if (index[id] != null) index[id]!,
+      ];
+    }
+    return out;
+  }
+
+  /// BSTI 사전 34개를 서버에서 찾아 `서버 성분 id → BSTI id` 인덱스를 만든다.
+  ///
+  /// 성분당 검색 1회(한글명), 실패·불일치 시 INCI 로 1회 더 — 최대 68회지만
+  /// 앱 실행당 한 번이고 서버 검색은 가벼운 ILIKE 쿼리다.
+  Future<Map<int, String>> _buildBstiIndex() async {
+    final cached = _bstiIndex;
+    if (cached != null) return cached;
+
+    final index = <int, String>{};
+    await Future.wait([
+      for (final bsti in kBstiIngredients.values)
+        _indexOne(bsti, index),
+    ]);
+    return _bstiIndex = index;
+  }
+
+  Future<void> _indexOne(BstiIngredient bsti, Map<int, String> index) async {
+    // 한글명 먼저, 안 잡히면 INCI. 후보 중 **정확 일치**만 채택한다.
+    for (final query in [bsti.nameKo, if (bsti.inci != null) bsti.inci!]) {
+      List<Ingredient> candidates;
+      try {
+        candidates = await search(query);
+      } on Object {
+        continue; // 검색 하나 실패해도 나머지 인덱스는 만든다.
+      }
+      for (final c in candidates) {
+        final matched = bstiIdForNames(nameKr: c.nameKor, nameEn: c.nameEng);
+        if (matched == bsti.id) {
+          index[c.id] = bsti.id;
+          return;
+        }
+      }
+    }
+  }
 }

@@ -57,19 +57,29 @@ flutter run \
 | `POST /api/v1/recommendations` | RAG 추천 (성분 중심 응답 — 추천 화면 개편 필요) |
 | `POST /api/v1/bsti/submit` | **501 스텁** (담당: 금별 — 프론트가 자체 채점하므로 급하지 않음) |
 
-## ⚠️ 백엔드에 요청 필요 (없으면 해당 기능이 빈 화면)
+## BSTI 는 프론트 완결 (팀 결정)
+
+서버 DB에 `bsti_ingredient_id` 매핑은 **없고, 만들지 않는다.**
+프론트가 BSTI 사전(`kBstiIngredients` 34개)의 한글명·INCI 를 서버 성분의
+`name_kr`/`name_en` 과 **정확 일치**로 대조해 직접 잇는다
+(`lib/features/bsti/bsti_name_matcher.dart` +
+`IngredientRepository.bstiIdsByProducts`).
+
+- 인덱스는 앱 실행당 한 번 구성 (성분당 검색 1~2회, 캐시)
+- 이름 표기가 서버와 달라 안 잡힌 성분은 그냥 빠진다 — 보고서가
+  "판단 정보 부족"으로 표시할 뿐 틀린 점수를 만들지 않는다
+- 서버 성분 데이터의 표기가 BSTI 사전과 다르면 매칭률이 떨어지므로,
+  **실데이터로 한 번 매칭률을 확인**해보고 필요하면 사전에 이명을 보강한다
+
+## ⚠️ 백엔드에 요청하면 좋은 것 (없어도 앱은 돌지만 해당 기능이 빔)
 
 `grep -rn "TODO(BE)" lib/` 로 코드 위치 확인.
 
-1. **`bsti_ingredient_id` 매핑이 DB에 없다.**
-   `ingredients` 테이블(001_create_ingredients.sql)에 해당 컬럼/테이블 없음.
-   **보고서 적합도 점수·부족 성분 추천이 전부 여기 걸려 있다.**
-   앱이 아는 id 34개는 `lib/features/bsti/bsti_dataset.dart` 의 `kBstiIngredients`.
-2. **성분 일괄 조회 없음** — 제안: `GET /api/v1/ingredients?ids=101,102`
+1. **성분 일괄 조회 없음** — 제안: `GET /api/v1/ingredients?ids=101,102`
    (**응답 순서 = 요청 순서.** 제품 상세가 앞 3개를 대표성분으로 씀)
-3. **성분→제품 역조회 없음** — 제안: `GET /api/v1/ingredients/{id}/products`
-   (성분 상세의 "이 성분이 든 제품")
-4. **제품 전체 목록 없음** — 추천 화면이 임시로 쓰던 것. 실제로는
+2. **성분→제품 역조회 없음** — 제안: `GET /api/v1/ingredients/{id}/products`
+   (성분 상세의 "이 성분이 든 제품" + 보고서의 "이 제품을 추천해요")
+3. **제품 전체 목록 없음** — 추천 화면이 임시로 쓰던 것. 실제로는
    `POST /api/v1/recommendations` 로 옮기는 게 맞으므로 우선순위 낮음.
 
 ## 에러 응답 공통 형식
