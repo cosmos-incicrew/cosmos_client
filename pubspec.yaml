@@ -98,7 +98,7 @@ flutter:
 flutter_launcher_icons:
   image_path: "assets/icons/app/app_icon.png"
   android: true
-  ios: true
+  ios: false # iOS 폴더가 없는 안드로이드 전용 프로젝트
   web:
     generate: true
   windows:

@@ -124,10 +124,8 @@ class HomeScreen extends StatelessWidget {
               child: _ImageButton(
                 asset: AppAssets.homeBsti,
                 label: 'BSTI 피부타입 검사',
-                // BSTI PNG 는 내부 여백이 많아 같은 폭에서 작아 보인다 —
-                // 살짝 키워 화장대(0.92)와 크기를 맞춘다. (1.04 는 12px 간격
-                // 안에서 흡수되는 수준이라 옆 버튼을 침범하지 않는다)
-                widthFactor: 1.04,
+                // 화장대(0.92)와 눈으로 맞춘 값 — 필요하면 이 숫자만 조정.
+                widthFactor: 0.96,
                 onTap: () => context.push('/bsti'),
               ),
             ),
