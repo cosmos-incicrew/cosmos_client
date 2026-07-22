@@ -37,7 +37,6 @@ class AppDrawer extends StatelessWidget {
             _item(context, 'BSTI 검사', () => context.push('/bsti')),
             _item(context, '나의 화장대', () => context.go('/shelf')),
             _item(context, '맞춤 제품추천', () => context.push('/recommendation')),
-            _item(context, '제품 비교', () => context.push('/compare')),
             _item(context, '마이페이지', () => context.go('/profile')),
           ],
         ),

@@ -102,7 +102,11 @@ class AppShell extends StatelessWidget {
           selectedIndex: navigationShell.currentIndex,
           onDestinationSelected: (index) => navigationShell.goBranch(
             index,
-            initialLocation: index == navigationShell.currentIndex,
+            // 홈 탭(1)은 브랜치에 쌓인 화면(BSTI·보고서 등)을 복원하지 않고
+            // 항상 홈 루트로 간다 — "홈 눌렀는데 다른 화면이 뜨는" 문제 방지.
+            // 다른 탭은 같은 탭을 다시 눌렀을 때만 루트로 리셋.
+            initialLocation:
+                index == 1 || index == navigationShell.currentIndex,
           ),
           destinations: const [
             NavigationDestination(

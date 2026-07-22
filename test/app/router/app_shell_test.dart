@@ -42,14 +42,14 @@ void main() {
         .map((d) => d.label)
         .toList();
 
-    expect(labels, ['화장대', '홈', '마이']);
+    expect(labels, ['SHELF', 'HOME', 'MY']);
   });
 
   testWidgets('홈 탭을 누르면 홈이 뜬다 (인덱스 정합성)', (tester) async {
     await tester.pumpWidget(app());
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('홈'));
+    await tester.tap(find.text('HOME'));
     await tester.pumpAndSettle();
 
     expect(find.text('홈화면'), findsOneWidget);

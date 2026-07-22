@@ -55,11 +55,20 @@ class AppAssets {
   /// My-Skin ITEM — "나와 베스트 궁합 제품 추천".
   static const String homeMyItem = '$_home/my_skin_item.png';
 
-  /// My-Skin ITEM 옆 장식 — 우주복 고양이 "제품추천 완료".
+  /// My-Skin ITEM 옆 장식 — 우주복 고양이 "제품추천 완료". (현재 미사용 보관)
   static const String homeMyItemCat = '$_home/my_item_cat.png';
+
+  /// "같이 써도 될까?" — 성분 비교 추천 (화장대 제품 궁합).
+  static const String homeCompare = '$_home/compare.png';
 
   /// 화장대 일러스트 — 현재 화면에서 미사용 (예비).
   static const String homeShelfMake = '$_home/shelf_make.png';
+
+  /// "내 화장대와 베스트 조합찾기!!" 라벨 배경 — 별밤 (733×129).
+  static const String homeRecoLabelBg = '$_home/reco_label_bg.png';
+
+  /// 보고서 생성 로딩 GIF — 최소 5초 노출.
+  static const String reportLoading = 'assets/images/report/report_loading.gif';
 
   // 프로필 성별 선택 고양이.
   static const String profileFemale = 'assets/images/profile/female.png';

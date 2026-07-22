@@ -5,7 +5,6 @@ import '../../../../app/theme/app_assets.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_text_styles.dart';
 import '../../../../core/widgets/pixel_box.dart';
-import '../../../../core/widgets/pixel_button.dart';
 
 /// 홈 화면 — 기능 허브. (피그마 가안 레이아웃)
 ///
@@ -39,14 +38,9 @@ class HomeScreen extends StatelessWidget {
                       // 배너와 메뉴 사이는 붙이고, 남는 공간은 아래로 몬다.
                       const SizedBox(height: 16),
                       _menuGrid(context),
-                      const SizedBox(height: 14),
-                      // 다중 제품 비교 — 성분 구성 차이 + 해설.
-                      PixelButton(
-                        label: '제품 비교하기',
-                        icon: Icons.compare_arrows,
-                        onPressed: () => context.push('/compare'),
-                      ),
-                      const Spacer(flex: 3),
+                      // 푸터와의 간격은 좁게 — 남는 공간을 위로 올린다.
+                      const Spacer(flex: 1),
+                      const SizedBox(height: 4),
                     ],
                   ),
                 ),
@@ -102,8 +96,8 @@ class HomeScreen extends StatelessWidget {
       asset: AppAssets.homeShelfScoreBanner,
       // START 버튼만 커진 버전 — 이미지가 들어오면 자동으로 교체된다.
       hoverAsset: AppAssets.homeShelfScoreBannerHover,
-      // 원본 PNG 모서리가 각져 있어 둥글게 자른다 (살짝만).
-      borderRadius: BorderRadius.circular(12),
+      // 라운드는 이미지에 직접 구워져 있다 (두 장 동일 반지름 26px) —
+      // 코드 클립을 더하면 이중으로 깎여서 여기선 안 자른다.
       label: '내 화장대 점수는??',
       onTap: () => context.push('/report'),
     );
@@ -113,63 +107,89 @@ class HomeScreen extends StatelessWidget {
   //
   // 이미지 안에 캡션·타이틀·버튼이 모두 그려져 있어 텍스트를 얹지 않는다.
   Widget _menuGrid(BuildContext context) {
+    // 네 버튼 모두 같은 폭(286px)으로 뽑힌 원본 — 배율 보정 없이
+    // 반반 그리드에 그대로. 높이만 살짝 달라서 행마다 하단선을 맞춘다.
+    // 전체를 86% 로 줄여 그린다 (버튼이 꽉 차면 부담스러움 — 조절은 이 숫자).
     return Column(
       children: [
-        // 1행: BSTI | 내 화장대 (정사각 이미지 2장 → 좌우 균등)
-        // 이미지 높이가 달라도 **하단선을 맞춘다** — 위가 어긋나는 건
-        // 여백으로 보이지만 아래가 어긋나면 흐트러져 보인다.
-        Row(
+        // 1행: BSTI | 내 화장대 — 버튼 행만 86% (라벨 바는 배너와 같은 전체 폭).
+        FractionallySizedBox(
+          widthFactor: 0.86,
+          child: Row(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
             Expanded(
               child: _ImageButton(
                 asset: AppAssets.homeBsti,
                 label: 'BSTI 피부타입 검사',
-                // 옆 버튼과 비율이 달라도 같은 높이·하단선.
-                height: 150,
                 onTap: () => context.push('/bsti'),
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 28),
             Expanded(
               child: _ImageButton(
                 asset: AppAssets.homeShelf,
                 label: '내 화장대 만들기',
-                height: 150,
                 // 화장대(담은 리스트)로. 담기는 거기 검색창에서 한다.
                 onTap: () => context.go('/shelf'),
               ),
             ),
           ],
+          ),
         ),
-        const SizedBox(height: 12),
-        // 2행: [우주복 고양이 장식] | [My-Skin ITEM]
-        // 1행과 같은 반반 구조라 My-Skin ITEM 폭 = BSTI 폭.
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Expanded(
-              // 장식 이미지 — 버튼 아님.
-              child: SizedBox(
-                height: 150,
+        // 행 사이 구분 문구 — 별밤 배경 위에 흰 갈무리체 + 옅은 노랑 네온.
+        Padding(
+          padding: const EdgeInsets.only(top: 24, bottom: 8),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(14),
                 child: Image.asset(
-                  AppAssets.homeMyItemCat,
-                  fit: BoxFit.contain,
-                  alignment: Alignment.bottomCenter,
+                  AppAssets.homeRecoLabelBg,
+                  width: double.infinity,
+                  fit: BoxFit.cover,
                   errorBuilder: (_, __, ___) => const SizedBox.shrink(),
                 ),
               ),
+              Text(
+                  '내 화장대와 베스트 조합찾기!!',
+                  style: AppTextStyles.pointBoldEn(size: 19, color: Colors.white)
+                      .copyWith(
+                    shadows: const [
+                      // 옅은 노란 네온 — 안쪽 잔광 + 바깥 번짐.
+                      Shadow(color: Color(0xCCFFF3B0), blurRadius: 6),
+                      Shadow(color: Color(0x88FFE96B), blurRadius: 14),
+                      Shadow(color: Color(0x55FFE96B), blurRadius: 26),
+                    ],
+                  ),
+              ),
+            ],
+          ),
+        ),
+        // 2행: 같이 써도 될까?(성분 비교) | My-Skin ITEM
+        FractionallySizedBox(
+          widthFactor: 0.86,
+          child: Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Expanded(
+              child: _ImageButton(
+                asset: AppAssets.homeCompare,
+                label: '같이 써도 될까? 성분 비교 추천',
+                onTap: () => context.push('/compare'),
+              ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 28),
             Expanded(
               child: _ImageButton(
                 asset: AppAssets.homeMyItem,
                 label: '나와 베스트 궁합 제품추천',
-                height: 150,
                 onTap: () => context.push('/recommendation'),
               ),
             ),
           ],
+          ),
         ),
       ],
     );
@@ -186,8 +206,6 @@ class _ImageButton extends StatefulWidget {
     required this.label,
     required this.onTap,
     this.hoverAsset,
-    this.borderRadius,
-    this.height,
   });
 
   final String asset;
@@ -200,13 +218,6 @@ class _ImageButton extends StatefulWidget {
   /// 주어지면 스케일 효과 대신 **이미지 두 장 교체**로 반응한다.
   /// 파일이 아직 없으면 기본 이미지가 유지된다.
   final String? hoverAsset;
-
-  /// 이미지 모서리를 둥글게 자를 때 (원본 PNG 가 각져 있을 때).
-  final BorderRadius? borderRadius;
-
-  /// 지정하면 이 높이 상자에 **하단 기준**으로 이미지를 맞춘다 —
-  /// 비율이 다른 이미지들(정사각 vs 가로형)의 높이·하단선을 통일할 때.
-  final double? height;
 
   @override
   State<_ImageButton> createState() => _ImageButtonState();
@@ -242,11 +253,7 @@ class _ImageButtonState extends State<_ImageButton> {
             duration: const Duration(milliseconds: 120),
             curve: Curves.easeOut,
             // 두 장을 겹쳐두고 투명도만 바꾼다 — 첫 호버에 로딩 깜빡임이 없다.
-            child: SizedBox(
-              height: widget.height,
-              child: ClipRRect(
-                borderRadius: widget.borderRadius ?? BorderRadius.zero,
-                child: Stack(
+            child: Stack(
                 alignment: Alignment.center,
                 children: [
                   Opacity(
@@ -254,9 +261,6 @@ class _ImageButtonState extends State<_ImageButton> {
                     child: Image.asset(
                       widget.asset,
                       fit: BoxFit.contain,
-                      alignment: widget.height != null
-                          ? Alignment.bottomCenter
-                          : Alignment.center,
                       errorBuilder: (_, __, ___) => Container(
                         height: 100,
                         decoration: BoxDecoration(
@@ -279,9 +283,6 @@ class _ImageButtonState extends State<_ImageButton> {
                         child: Image.asset(
                           widget.hoverAsset!,
                           fit: BoxFit.contain,
-                          alignment: widget.height != null
-                              ? Alignment.bottomCenter
-                              : Alignment.center,
                           // 호버 이미지가 아직 없으면 조용히 기본 유지.
                           errorBuilder: (_, __, ___) =>
                               const SizedBox.shrink(),
@@ -289,9 +290,7 @@ class _ImageButtonState extends State<_ImageButton> {
                       ),
                     ),
                 ],
-                ),
               ),
-            ),
             ),
           ),
       ),

@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_text_styles.dart';
+import '../../../../core/policy/display_policy.dart';
 import '../../../../core/widgets/pixel_box.dart';
+import '../../../../core/widgets/section_label.dart';
 import '../../../ingredient/data/ingredient_providers.dart';
 import '../../../ingredient/data/models/ingredient_insight.dart';
 
@@ -124,15 +126,35 @@ class IngredientDetailSheet extends ConsumerWidget {
       );
     }
 
+    // 본문(출처줄 제거)을 「성분 역할」/「주의사항」 구획으로 나눈다.
+    final body = detail.body == null
+        ? null
+        : InsightSectionPolicy.splitRoleCaution(
+            SourceDisplayPolicy.stripSourceLines(detail.body!));
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (detail.body != null)
-          Text(detail.body!, style: AppTextStyles.body.copyWith(height: 1.6)),
+        if (body != null && body.role.isNotEmpty) ...[
+          const SectionLabel('성분 역할'),
+          Text(body.role, style: AppTextStyles.body.copyWith(height: 1.6)),
+        ],
+        // 주의사항 — 본문에서 분리한 주의 문장 + safety(형태별 표기).
+        // safety 가 "확인 불가"여도 그 사실 자체를 알린다 (항상 표시).
         const SizedBox(height: 16),
+        const SectionLabel('주의사항', color: AppColors.danger),
+        if (body?.caution != null)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Text(body!.caution!,
+                style: AppTextStyles.body.copyWith(height: 1.6)),
+          ),
         _safety(detail),
-        // 검증된 출처만 표시한다 (source_verified=false → 본문만).
-        if (detail.sourceVerified && detail.referenceSource != null) ...[
+        // 출처 표기 — 표시 정책상 사용자에게 숨긴다.
+        // (source_verified 검증 규칙은 유지 — 정책을 다시 켜면 그대로 동작)
+        if (SourceDisplayPolicy.showSources &&
+            detail.sourceVerified &&
+            detail.referenceSource != null) ...[
           const SizedBox(height: 12),
           Text('출처: ${detail.referenceSource}',
               style: AppTextStyles.caption
