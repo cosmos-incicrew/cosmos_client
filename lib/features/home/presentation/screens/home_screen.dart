@@ -102,8 +102,8 @@ class HomeScreen extends StatelessWidget {
       asset: AppAssets.homeShelfScoreBanner,
       // START 버튼만 커진 버전 — 이미지가 들어오면 자동으로 교체된다.
       hoverAsset: AppAssets.homeShelfScoreBannerHover,
-      // 원본 PNG 모서리가 각져 있어 둥글게 자른다.
-      borderRadius: BorderRadius.circular(18),
+      // 원본 PNG 모서리가 각져 있어 둥글게 자른다 (살짝만).
+      borderRadius: BorderRadius.circular(12),
       label: '내 화장대 점수는??',
       onTap: () => context.push('/report'),
     );
@@ -125,8 +125,6 @@ class HomeScreen extends StatelessWidget {
               child: _ImageButton(
                 asset: AppAssets.homeBsti,
                 label: 'BSTI 피부타입 검사',
-                // 화장대(0.92)와 눈으로 맞춘 값 — 필요하면 이 숫자만 조정.
-                widthFactor: 0.96,
                 onTap: () => context.push('/bsti'),
               ),
             ),
@@ -135,8 +133,6 @@ class HomeScreen extends StatelessWidget {
               child: _ImageButton(
                 asset: AppAssets.homeShelf,
                 label: '내 화장대 만들기',
-                // 원본 PNG 여백이 BSTI 쪽보다 적어 더 크게 보인다 — 살짝 줄여 맞춤.
-                widthFactor: 0.92,
                 // 화장대(담은 리스트)로. 담기는 거기 검색창에서 한다.
                 onTap: () => context.go('/shelf'),
               ),
@@ -167,7 +163,6 @@ class _ImageButton extends StatefulWidget {
     required this.asset,
     required this.label,
     required this.onTap,
-    this.widthFactor = 1.0,
     this.hoverAsset,
     this.borderRadius,
   });
@@ -177,10 +172,6 @@ class _ImageButton extends StatefulWidget {
   /// 이미지 로드 실패 시 보여줄 대체 문구 (스크린리더 라벨 겸용).
   final String label;
   final VoidCallback onTap;
-
-  /// 1.0 미만이면 그만큼 줄여 그린다 — 원본 PNG 여백이 제각각이라
-  /// 버튼끼리 크기를 맞출 때 쓴다.
-  final double widthFactor;
 
   /// 호버 시 교체할 이미지 (예: START 버튼만 커진 버전).
   /// 주어지면 스케일 효과 대신 **이미지 두 장 교체**로 반응한다.
@@ -223,10 +214,8 @@ class _ImageButtonState extends State<_ImageButton> {
             scale: scale,
             duration: const Duration(milliseconds: 120),
             curve: Curves.easeOut,
-            child: FractionallySizedBox(
-              widthFactor: widget.widthFactor,
-              // 두 장을 겹쳐두고 투명도만 바꾼다 — 첫 호버에 로딩 깜빡임이 없다.
-              child: ClipRRect(
+            // 두 장을 겹쳐두고 투명도만 바꾼다 — 첫 호버에 로딩 깜빡임이 없다.
+            child: ClipRRect(
                 borderRadius: widget.borderRadius ?? BorderRadius.zero,
                 child: Stack(
                 alignment: Alignment.center,
@@ -265,11 +254,10 @@ class _ImageButtonState extends State<_ImageButton> {
                       ),
                     ),
                 ],
-              ),
+                ),
               ),
             ),
           ),
-        ),
       ),
     );
   }
