@@ -130,6 +130,8 @@ class HomeScreen extends StatelessWidget {
               child: _ImageButton(
                 asset: AppAssets.homeShelf,
                 label: '내 화장대 만들기',
+                // 원본 PNG 여백이 BSTI 쪽보다 적어 더 크게 보인다 — 살짝 줄여 맞춤.
+                widthFactor: 0.92,
                 // 화장대(담은 리스트)로. 담기는 거기 검색창에서 한다.
                 onTap: () => context.go('/shelf'),
               ),
@@ -155,11 +157,12 @@ class HomeScreen extends StatelessWidget {
 ///
 /// 캡션·타이틀·화살표가 이미지 안에 그려져 있으므로 위에 아무것도 얹지 않는다.
 /// 이미지가 없을 때만 [label] 텍스트 플레이스홀더로 대체한다.
-class _ImageButton extends StatelessWidget {
+class _ImageButton extends StatefulWidget {
   const _ImageButton({
     required this.asset,
     required this.label,
     required this.onTap,
+    this.widthFactor = 1.0,
   });
 
   final String asset;
@@ -168,28 +171,60 @@ class _ImageButton extends StatelessWidget {
   final String label;
   final VoidCallback onTap;
 
+  /// 1.0 미만이면 그만큼 줄여 그린다 — 원본 PNG 여백이 제각각이라
+  /// 버튼끼리 크기를 맞출 때 쓴다.
+  final double widthFactor;
+
+  @override
+  State<_ImageButton> createState() => _ImageButtonState();
+}
+
+class _ImageButtonState extends State<_ImageButton> {
+  bool _hovered = false;
+  bool _pressed = false;
+
   @override
   Widget build(BuildContext context) {
+    // 호버(웹/데스크톱)에선 살짝 커지고, 누르는 순간엔 살짝 눌린다.
+    // 이미지 자체를 못 바꾸는 대신 스케일로 반응을 준다.
+    final scale = _pressed ? 0.96 : (_hovered ? 1.04 : 1.0);
+
     return Semantics(
       button: true,
-      label: label,
-      child: GestureDetector(
-        onTap: onTap,
-        behavior: HitTestBehavior.opaque,
-        child: Image.asset(
-          asset,
-          fit: BoxFit.contain,
-          errorBuilder: (_, __, ___) => Container(
-            height: 100,
-            decoration: BoxDecoration(
-              color: AppColors.primaryLight.withValues(alpha: 0.4),
-              borderRadius: BorderRadius.circular(16),
+      label: widget.label,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _hovered = true),
+        onExit: (_) => setState(() => _hovered = false),
+        child: GestureDetector(
+          onTap: widget.onTap,
+          onTapDown: (_) => setState(() => _pressed = true),
+          onTapUp: (_) => setState(() => _pressed = false),
+          onTapCancel: () => setState(() => _pressed = false),
+          behavior: HitTestBehavior.opaque,
+          child: AnimatedScale(
+            scale: scale,
+            duration: const Duration(milliseconds: 120),
+            curve: Curves.easeOut,
+            child: FractionallySizedBox(
+              widthFactor: widget.widthFactor,
+              child: Image.asset(
+                widget.asset,
+                fit: BoxFit.contain,
+                errorBuilder: (_, __, ___) => Container(
+                  height: 100,
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryLight.withValues(alpha: 0.4),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(widget.label,
+                      textAlign: TextAlign.center,
+                      style: AppTextStyles.caption
+                          .copyWith(color: AppColors.textPrimary)),
+                ),
+              ),
             ),
-            alignment: Alignment.center,
-            child: Text(label,
-                textAlign: TextAlign.center,
-                style: AppTextStyles.caption
-                    .copyWith(color: AppColors.textPrimary)),
           ),
         ),
       ),
