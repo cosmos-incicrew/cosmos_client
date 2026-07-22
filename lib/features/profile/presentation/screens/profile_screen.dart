@@ -164,7 +164,6 @@ class ProfileScreen extends ConsumerWidget {
     return switch (provider) {
       AuthProvider.guest => '게스트 로그인',
       AuthProvider.kakao => '카카오 계정',
-      AuthProvider.naver => '네이버 계정 (목업)',
       AuthProvider.google => 'Google 계정',
       AuthProvider.apple => 'Apple 계정',
       AuthProvider.none => '',

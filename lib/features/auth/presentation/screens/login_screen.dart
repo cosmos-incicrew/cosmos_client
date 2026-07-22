@@ -12,7 +12,7 @@ import '../../data/auth_repository.dart';
 import '../providers/auth_provider.dart';
 
 /// 시트에서 고른 소셜 종류. 애플은 v1 제외라 없다.
-enum _Social { kakao, naver, google }
+enum _Social { kakao, google }
 
 /// 로그인 시트 — 직전 화면(온보딩) 위에 어둠과 함께 올라오는 모달 바텀시트.
 ///
@@ -83,17 +83,6 @@ class _LoginSheetState extends ConsumerState<LoginSheet> {
                   onTap: _inFlight != null
                       ? null
                       : () => _socialLogin(context, ref, _Social.kakao),
-                ),
-                const SizedBox(width: 24),
-                _SocialCircle(
-                  logo: AppAssets.naver,
-                  fallbackIcon: Icons.check_circle,
-                  fallbackBackground: const Color(0xFF03C75A),
-                  fallbackForeground: Colors.white,
-                  busy: _inFlight == _Social.naver,
-                  onTap: _inFlight != null
-                      ? null
-                      : () => _socialLogin(context, ref, _Social.naver),
                 ),
                 const SizedBox(width: 24),
                 _SocialCircle(
@@ -170,9 +159,6 @@ class _LoginSheetState extends ConsumerState<LoginSheet> {
       switch (social) {
         case _Social.kakao:
           await ctrl.signInWithKakao();
-        case _Social.naver:
-          // ⚠️ 목업 — 실제 연동 계획 없음. 게스트처럼 로컬 세션만 생긴다.
-          await ctrl.signInWithNaver();
         case _Social.google:
           await ctrl.signInWithGoogle();
       }

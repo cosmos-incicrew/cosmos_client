@@ -2,7 +2,6 @@
 //
 // Supabase URL/anon key 나 구글 클라이언트 ID 가 비어 있으면 로그인은 못 하지만,
 // 그게 예외로 화면까지 올라와 앱이 죽으면 안 된다.
-// 네이버는 의도된 목업이다 (실제 연동 계획 없음 — 누르면 성공).
 // ignore_for_file: depend_on_referenced_packages
 import 'package:cosmos_app/features/auth/data/auth_repository.dart';
 import 'package:cosmos_app/features/auth/data/auth_state.dart';
@@ -33,12 +32,6 @@ void main() {
       repo.signInWithKakao(),
       throwsA(isA<AuthNotConfiguredException>()),
     );
-  });
-
-  test('네이버는 목업 — 누르면 성공한다', () async {
-    final state = await repo.signInWithNaver();
-    expect(state.status, AuthStatus.authenticated);
-    expect(state.provider, AuthProvider.naver);
   });
 
   test('애플은 v1 제외라 미구현으로 남는다', () async {
