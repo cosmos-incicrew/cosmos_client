@@ -20,13 +20,20 @@ class Env {
     defaultValue: '', // TODO: Supabase anon key
   );
 
-  /// BE 팀 담당 검색 API 베이스 URL (Dio 용).
+  /// cosmos_server(FastAPI) 베이스 URL (Dio 용).
+  ///
+  /// 로컬 서버 예: http://localhost:8000
+  /// 비어 있으면 저장소가 API를 호출하지 않고 빈 결과를 돌려준다
+  /// (가짜 주소로 요청을 날려 에러 화면을 띄우는 것보다 낫다).
   static const String apiBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'https://api.example.com', // TODO: 실제 API 주소
+    defaultValue: '',
   );
 
   /// Supabase 설정이 채워졌는지 여부. 비어 있으면 초기화를 건너뜁니다.
   static bool get hasSupabase =>
       supabaseUrl.isNotEmpty && supabaseAnonKey.isNotEmpty;
+
+  /// API 주소가 채워졌는지 여부. 비어 있으면 저장소는 빈 결과를 돌려준다.
+  static bool get hasApi => apiBaseUrl.isNotEmpty;
 }

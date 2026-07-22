@@ -23,13 +23,19 @@ class AuthController extends StateNotifier<AuthState> {
     state = await _repo.signInAsGuest();
   }
 
-  /// 카카오 로그인.
+  /// 카카오 로그인 — Supabase OAuth 리다이렉트를 시작한다.
   ///
-  /// 아직 SDK 연동 전이라 [UnimplementedError] 가 난다.
-  /// 상태를 건드리지 않고 그대로 올려보내, 화면이 안내 문구를 띄우게 한다.
-  /// (여기서 삼키면 버튼을 눌러도 아무 일도 안 일어난 것처럼 보인다)
-  Future<void> signInWithKakao() async {
-    state = await _repo.signInWithKakao();
+  /// 리다이렉트에서 돌아오면 앱이 재시작되고 [_restore] 가 세션을 읽으므로
+  /// 여기서 상태를 바꾸지 않는다. Supabase 미설정이면 [UnimplementedError] 가
+  /// 그대로 올라가 화면이 "준비 중" 안내를 띄운다.
+  Future<void> signInWithKakao() => _repo.signInWithKakao();
+
+  /// 구글 로그인 — 흐름은 카카오와 동일.
+  Future<void> signInWithGoogle() => _repo.signInWithGoogle();
+
+  /// 네이버 로그인 — ⚠️ 목업 (실제 연동 계획 없음).
+  Future<void> signInWithNaver() async {
+    state = await _repo.signInWithNaver();
   }
 
   Future<void> signOut() async {

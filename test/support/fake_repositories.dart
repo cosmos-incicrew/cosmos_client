@@ -72,6 +72,12 @@ class FakeProductRepository implements ProductRepository {
   @override
   Future<List<Product>> listAll() async => testProducts;
 
+  /// 실제 백엔드처럼 제품 → 성분 id 목록 (배합 순서 유지).
+  @override
+  Future<List<int>> getIngredientIds(int productId) async =>
+      testProducts.where((p) => p.id == productId).firstOrNull?.ingredientIds ??
+      const [];
+
   @override
   Future<List<Product>> getByIngredient(int ingredientId) async =>
       testProducts.where((p) => p.ingredientIds.contains(ingredientId)).toList();

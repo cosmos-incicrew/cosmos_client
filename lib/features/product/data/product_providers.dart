@@ -1,11 +1,12 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/network/dio_client.dart';
 import 'models/product.dart';
 import 'product_repository.dart';
 
 /// 제품 저장소. 테스트에서는 이 프로바이더를 override 해서 가짜를 넣는다.
 final productRepositoryProvider = Provider<ProductRepository>((ref) {
-  return const ProductRepository();
+  return ProductRepository(ref.watch(dioProvider));
 });
 
 /// 제품 검색 결과. 검색어별로 캐시된다.

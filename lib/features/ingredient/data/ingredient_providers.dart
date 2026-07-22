@@ -1,11 +1,12 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/network/dio_client.dart';
 import 'ingredient_repository.dart';
 import 'models/ingredient.dart';
 
 /// 성분 저장소. 테스트에서는 이 프로바이더를 override 해서 가짜를 넣는다.
 final ingredientRepositoryProvider = Provider<IngredientRepository>((ref) {
-  return const IngredientRepository();
+  return IngredientRepository(ref.watch(dioProvider));
 });
 
 /// 성분 검색 결과. 검색어별로 캐시된다.

@@ -1,44 +1,61 @@
+import 'package:dio/dio.dart';
+
+import '../../../core/config/env.dart';
 import 'models/ingredient.dart';
 
-/// 성분 데이터 접근.
+/// 성분 데이터 접근 — cosmos_server `/api/v1/ingredients/*` 연동.
 ///
-/// ⚠️ 아직 백엔드가 붙지 않아 전부 빈 결과를 돌려준다.
-/// 백엔드 연동은 **이 클래스의 메서드 본문만** 바꾸면 끝난다.
+/// 모든 호출에 Supabase JWT가 필요하다 (dio 인터셉터가 자동 첨부).
+/// `API_BASE_URL` 이 비어 있으면 호출하지 않고 빈 결과를 돌려준다.
 ///
-/// 각 메서드의 `TODO(BE)` 주석에 필요한 엔드포인트와 응답 스키마를 적어두었다.
-/// 전체 목록은 `grep -rn "TODO(BE)" lib/` 또는 [docs/api-contract.md] 참고.
+/// ⚠️ 서버 필드명은 `name_kr` / `name_en` 이다 (프론트 모델의
+/// `name_kor` / `name_eng` 와 다름). 여기서 명시적으로 매핑한다 —
+/// Ingredient.fromJson 을 그대로 쓰면 조용히 null 로 파싱된다.
 class IngredientRepository {
-  const IngredientRepository();
+  const IngredientRepository(this._dio);
 
-  /// 성분 검색 — 한글명 또는 영문명 부분일치(대소문자 무시).
-  ///
-  /// TODO(BE): GET /ingredients/search?q={query}
-  ///   응답: [{"ingredient_id": 101, "name_kor": "글리세린",
-  ///           "name_eng": "Glycerin", "efficacy": "...",
-  ///           "recommended_skin_type": "모든 피부",
-  ///           "bsti_ingredient_id": "gly"}]
-  Future<List<Ingredient>> search(String query) async => const [];
+  final Dio _dio;
 
-  /// id 목록으로 성분 조회 — 제품 상세의 성분 목록.
+  /// 성분 검색 — 이명(한글·영문) 부분일치.
   ///
-  /// ⚠️ **입력 [ids] 순서를 그대로 유지해야 한다.**
-  /// 제품 상세가 앞에서 3개를 잘라 "대표성분"으로 보여주기 때문에,
-  /// 순서가 바뀌면 대표성분이 조용히 달라진다.
-  /// SQL `WHERE id IN (...)` 는 순서를 보장하지 않으므로,
-  /// 서버에서 정렬하거나 클라이언트에서 [ids] 기준으로 다시 정렬할 것.
-  /// 없는 id는 그냥 빠진다 (에러 아님).
+  /// GET /api/v1/ingredients/search?q={query}&limit=20
+  /// 응답: {"query": "...", "results": [
+  ///        {"ingredient_id", "name_kr", "name_en"}]}
+  Future<List<Ingredient>> search(String query) async {
+    if (!Env.hasApi || query.isEmpty) return const [];
+
+    final res = await _dio.get<Map<String, dynamic>>(
+      '/api/v1/ingredients/search',
+      queryParameters: {'q': query},
+    );
+    final results = (res.data?['results'] as List?) ?? const [];
+    return [
+      for (final raw in results.cast<Map<String, dynamic>>())
+        Ingredient(
+          id: raw['ingredient_id'] as int,
+          nameKor: raw['name_kr'] as String?,
+          // 모델의 nameEng 는 필수 — 영문명이 없으면 한글명으로 채운다.
+          nameEng: (raw['name_en'] ?? raw['name_kr'] ?? '') as String,
+        ),
+    ];
+  }
+
+  /// id 목록으로 성분 조회 — 제품 상세의 성분 목록. **입력 순서 유지.**
   ///
-  /// TODO(BE): GET /ingredients?ids=101,102,103
+  /// TODO(BE): 일괄 조회 엔드포인트가 서버에 없다.
+  ///   있는 것: GET /api/v1/ingredients/{id}/detail (LLM 해설 — 목록용으로는 무거움)
+  ///           POST /api/v1/ingredients/product-summary (대표성분+요약 —
+  ///           제품 상세를 이쪽으로 개편하는 게 서버 설계와 맞다)
+  ///   제안: GET /api/v1/ingredients?ids=101,102 (배열 순서 = 요청 순서)
   Future<List<Ingredient>> getByIds(List<int> ids) async => const [];
 
-  /// 제품들이 가진 BSTI 성분 id — 보고서 적합도 계산용.
+  /// 제품들이 가진 BSTI 성분 id — 보고서 적합도 계산용 (배치).
   ///
-  /// 반환: `{제품 id: [BSTI 성분 id, ...]}`
-  /// 제품마다 한 번씩 부르지 않도록 **배치로** 받는다.
-  ///
-  /// TODO(BE): GET /products/bsti-ingredients?product_ids=1,2,3
-  ///   응답: {"1": ["cera", "gly"], "2": ["niac"]}
-  ///   bsti_ingredient_id 가 없는 성분은 제외한다.
+  /// TODO(BE): 서버 DB에 bsti_ingredient_id 매핑 자체가 없다
+  ///   (ingredients 테이블: ingredient_id·name_kr·name_en·cas_no… 뿐).
+  ///   보고서의 적합도 점수·부족 성분 추천이 전부 이 매핑에 걸려 있으므로,
+  ///   매핑 추가를 백엔드에 요청해야 한다. 그 전까지 빈 결과 유지
+  ///   (보고서는 "판단 정보 부족"으로 표시된다 — 지어내지 않는다).
   Future<Map<int, List<String>>> bstiIdsByProducts(
     List<int> productIds,
   ) async =>

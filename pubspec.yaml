@@ -49,6 +49,10 @@ dev_dependencies:
   riverpod_generator: ^2.4.0
   hive_generator: ^2.0.1
 
+  # 앱 런처 아이콘 생성 — assets/icons/app/app_icon.png 를 넣고
+  # `dart run flutter_launcher_icons` 실행 (아래 flutter_launcher_icons 섹션)
+  flutter_launcher_icons: ^0.14.1
+
 flutter:
   uses-material-design: true
   assets:
@@ -86,3 +90,15 @@ flutter:
         - asset: assets/fonts/Galmuri11.ttf
         - asset: assets/fonts/Galmuri11-Bold.ttf
           weight: 700
+
+# 앱 런처 아이콘 (홈 화면 아이콘) 설정.
+# 1) assets/icons/app/app_icon.png 에 1024x1024 PNG 를 넣는다
+# 2) dart run flutter_launcher_icons   ← 플랫폼별 아이콘 자동 생성
+flutter_launcher_icons:
+  image_path: "assets/icons/app/app_icon.png"
+  android: true
+  ios: true
+  web:
+    generate: true
+  windows:
+    generate: true

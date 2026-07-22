@@ -61,8 +61,8 @@ class LoginSheet extends ConsumerWidget {
                   fallbackIcon: Icons.chat_bubble,
                   fallbackBackground: const Color(0xFFFEE500),
                   fallbackForeground: const Color(0xFF3C1E1E),
-                  // ⚠️ 목 로그인 — SDK 없이 무조건 성공한다.
-                  onTap: () => _kakaoLogin(context, ref),
+                  // Supabase OAuth — 카카오 동의 화면으로 리다이렉트.
+                  onTap: () => _oauthLogin(context, ref, _OAuth.kakao),
                 ),
                 const SizedBox(width: 24),
                 _SocialCircle(
@@ -70,7 +70,8 @@ class LoginSheet extends ConsumerWidget {
                   fallbackIcon: Icons.check_circle,
                   fallbackBackground: const Color(0xFF03C75A),
                   fallbackForeground: Colors.white,
-                  onTap: () => _notReady(context),
+                  // ⚠️ 목업 — 실제 연동 계획 없음. 누르면 성공.
+                  onTap: () => _naverMockLogin(context, ref),
                 ),
                 const SizedBox(width: 24),
                 _SocialCircle(
@@ -80,7 +81,8 @@ class LoginSheet extends ConsumerWidget {
                   fallbackForeground: Colors.black87,
                   // 구글 로고는 투명 배경 → 흰 원을 깔아 통일.
                   padBackground: Colors.white,
-                  onTap: () => _notReady(context),
+                  // Supabase OAuth — 구글 동의 화면으로 리다이렉트.
+                  onTap: () => _oauthLogin(context, ref, _OAuth.google),
                 ),
               ],
             ),
@@ -118,19 +120,33 @@ class LoginSheet extends ConsumerWidget {
       );
   }
 
-  /// 카카오 로그인.
-  /// 로그인 후 온보딩을 마쳤으면 홈, 아니면 프로필 등록으로 보낸다.
+  /// 카카오·구글 로그인 — Supabase OAuth 리다이렉트를 시작한다.
   ///
-  /// SDK 연동 전에는 [UnimplementedError] 가 나므로, 크래시 대신
-  /// 다른 소셜 버튼과 같은 안내를 띄운다.
-  Future<void> _kakaoLogin(BuildContext context, WidgetRef ref) async {
+  /// 성공하면 브라우저가 동의 화면으로 넘어가므로 **여기서 화면 이동을 하지
+  /// 않는다.** 돌아오면 앱이 재시작되고 라우터가 세션을 보고 보낸다.
+  /// Supabase 미설정([UnimplementedError])이면 "준비 중" 안내.
+  Future<void> _oauthLogin(
+    BuildContext context,
+    WidgetRef ref,
+    _OAuth which,
+  ) async {
     final ctrl = ref.read(authControllerProvider.notifier);
     try {
-      await ctrl.signInWithKakao();
+      switch (which) {
+        case _OAuth.kakao:
+          await ctrl.signInWithKakao();
+        case _OAuth.google:
+          await ctrl.signInWithGoogle();
+      }
     } on UnimplementedError {
       if (context.mounted) _notReady(context);
-      return;
     }
+  }
+
+  /// 네이버 로그인 — ⚠️ 목업 (누르면 성공).
+  /// 로그인 후 온보딩을 마쳤으면 홈, 아니면 프로필 등록으로 보낸다.
+  Future<void> _naverMockLogin(BuildContext context, WidgetRef ref) async {
+    await ref.read(authControllerProvider.notifier).signInWithNaver();
     if (!context.mounted) return;
 
     // 로그인 시트를 닫고 다음 단계로.
@@ -250,3 +266,6 @@ class _SocialCircle extends StatelessWidget {
     );
   }
 }
+
+/// Supabase OAuth 로 리다이렉트하는 소셜 로그인 종류.
+enum _OAuth { kakao, google }
