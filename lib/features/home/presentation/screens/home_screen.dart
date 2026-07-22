@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../app/theme/app_assets.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_text_styles.dart';
+import '../../../../core/widgets/app_drawer.dart';
 import '../../../../core/widgets/pixel_box.dart';
 
 /// 홈 화면 — 기능 허브. (피그마 가안 레이아웃)
@@ -45,7 +46,7 @@ class HomeScreen extends StatelessWidget {
         ],
         toolbarHeight: 96,
       ),
-      drawer: const _HomeDrawer(),
+      drawer: const AppDrawer(),
       // 한 화면에 들어오게 배치하되, 작은 화면에선 안전하게 스크롤.
       // IntrinsicHeight — 스크롤 안에서도 Spacer가 동작하도록 높이를 확정한다.
       body: SafeArea(
@@ -217,55 +218,3 @@ class _ImageButton extends StatelessWidget {
 }
 
 /// 햄버거 메뉴 드로어 (임시 — 실제 메뉴 항목은 피그마 확정 후 채움).
-class _HomeDrawer extends StatelessWidget {
-  const _HomeDrawer();
-
-  @override
-  Widget build(BuildContext context) {
-    return Drawer(
-      child: SafeArea(
-        child: ListView(
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: Image.asset(AppAssets.logoWordmark, height: 32),
-            ),
-            const Divider(height: 1),
-            ListTile(
-              leading: const Icon(Icons.psychology_outlined),
-              title: const Text('BSTI 검사'),
-              onTap: () {
-                Navigator.pop(context);
-                context.push('/bsti');
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.shelves),
-              title: const Text('나의 화장대'),
-              onTap: () {
-                Navigator.pop(context);
-                context.go('/shelf');
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.recommend_outlined),
-              title: const Text('맞춤 제품추천'),
-              onTap: () {
-                Navigator.pop(context);
-                context.push('/recommendation');
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.person_outline),
-              title: const Text('마이페이지'),
-              onTap: () {
-                Navigator.pop(context);
-                context.go('/profile');
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}

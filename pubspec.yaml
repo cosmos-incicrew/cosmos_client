@@ -30,10 +30,11 @@ dependencies:
   hive_flutter: ^1.1.0
   flutter_secure_storage: ^9.2.2
 
-  # 로그인 (게스트 외 소셜은 후속 연동 — 주석 참고)
-  # kakao_flutter_sdk_user: ^1.9.5
-  # google_sign_in: ^6.2.1
-  # sign_in_with_apple: ^6.1.1
+  # 로그인
+  # 구글만 네이티브 SDK가 필요하다 — ID 토큰을 받아 Supabase 로 넘긴다.
+  # 카카오는 Supabase 웹 OAuth(딥링크 복귀)로 처리하므로 SDK 를 안 쓴다.
+  google_sign_in: ^7.2.0
+  # 네이버·애플은 v1 제외 (2026-07-07 결정)
 
   # 유틸
   cupertino_icons: ^1.0.6

@@ -30,10 +30,29 @@ class Env {
     defaultValue: '',
   );
 
+  /// 구글 로그인용 **웹** 클라이언트 ID (Google Cloud 등록값).
+  ///
+  /// 안드로이드 클라이언트 ID가 아니라 웹 쪽을 넣는다 — google_sign_in 은 이 값을
+  /// serverClientId 로 받아 Supabase 가 검증할 수 있는 ID 토큰을 발급받는다.
+  static const String googleWebClientId = String.fromEnvironment(
+    'GOOGLE_WEB_CLIENT_ID',
+    defaultValue: '',
+  );
+
+  /// 카카오 로그인 후 앱으로 돌아올 딥링크.
+  ///
+  /// AndroidManifest 의 intent-filter scheme/host 와 **글자까지 같아야** 한다.
+  /// 다르면 브라우저에서 로그인은 끝나는데 앱으로 안 돌아온다.
+  static const String authRedirectUrl = 'cosmos://login-callback';
+
   /// Supabase 설정이 채워졌는지 여부. 비어 있으면 초기화를 건너뜁니다.
   static bool get hasSupabase =>
       supabaseUrl.isNotEmpty && supabaseAnonKey.isNotEmpty;
 
   /// API 주소가 채워졌는지 여부. 비어 있으면 저장소는 빈 결과를 돌려준다.
   static bool get hasApi => apiBaseUrl.isNotEmpty;
+
+  /// 구글 로그인을 시도할 수 있는지. 비어 있으면 버튼이 안내만 띄운다.
+  static bool get hasGoogleSignIn =>
+      hasSupabase && googleWebClientId.isNotEmpty;
 }

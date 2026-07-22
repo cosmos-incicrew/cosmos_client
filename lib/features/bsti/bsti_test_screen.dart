@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -6,8 +8,8 @@ import '../../app/theme/app_assets.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_text_styles.dart';
 import '../../core/widgets/pixel_box.dart';
+import '../onboarding/data/profile_store.dart';
 import 'bsti.dart';
-import 'bsti_result_store.dart';
 
 /// BSTI 설문 화면 — 문항을 하나씩 풀며 보기(4개)를 선택한다.
 ///
@@ -52,7 +54,9 @@ class _BstiTestScreenState extends ConsumerState<BstiTestScreen> {
   void _finish() {
     final code = BstiEngine.computeCode(_answers);
     // 보고서가 읽을 수 있게 결과를 저장한다. (URL 쿼리는 화면 표시용)
-    ref.read(bstiResultProvider.notifier).save(code);
+    // 서버 저장은 기다리지 않는다 — 실패해도 로컬 상태는 남고, 결과 화면을
+    // 네트워크 때문에 붙잡아 두면 검사 흐름이 끊긴다.
+    unawaited(ref.read(userProfileProvider.notifier).saveBstiType(code));
     context.pushReplacement('/bsti/result?code=$code');
   }
 

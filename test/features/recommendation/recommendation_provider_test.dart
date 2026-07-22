@@ -3,7 +3,6 @@
 // 피부유형·피부고민·기피성분이 실제로 반영되는지,
 // 근거 문구가 "반영한 것만" 말하는지 본다.
 // ignore_for_file: depend_on_referenced_packages
-import 'package:cosmos_app/features/bsti/bsti_result_store.dart';
 import 'package:cosmos_app/features/my_shelf/data/shelf_preference.dart';
 import 'package:cosmos_app/features/onboarding/data/profile_store.dart';
 import 'package:cosmos_app/features/onboarding/data/skin_concern.dart';
@@ -39,8 +38,9 @@ void main() {
 
   test('검사·고민·기피가 근거에 그대로 반영된다', () async {
     final c = make();
-    c.read(bstiResultProvider.notifier).save('OSPW');
-    c.read(userProfileProvider.notifier).save(concerns: {SkinConcern.acne});
+    await c.read(userProfileProvider.notifier).saveBstiType('OSPW');
+    c.read(userProfileProvider.notifier)
+        .save(const UserProfile(concerns: {SkinConcern.acne}));
     c.read(shelfPreferenceProvider.notifier).add(const ShelfEntry(
           id: 101,
           name: '글리세린',
@@ -88,7 +88,7 @@ void main() {
     final c = make();
     // 민감성 → cica(병풀). 테스트 진정토너(id 2)가 그걸 갖고 있다.
     c.read(userProfileProvider.notifier)
-        .save(concerns: {SkinConcern.sensitivity});
+        .save(const UserProfile(concerns: {SkinConcern.sensitivity}));
 
     final result = await c.read(recommendationProvider.future);
     final toners = result.byCategory['토너'] ?? const [];
