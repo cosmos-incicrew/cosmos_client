@@ -13,7 +13,9 @@ ios/Flutter/flutter_export_environment.sh
 
 # IDE
 .idea/
-.vscode/
+.vscode/*
+# 팀 공용 실행 설정만 공유한다 (웹 3000 포트 고정 + dart-define 주입).
+!.vscode/launch.json
 *.iml
 
 # 민감 정보 (dart-define / env)
