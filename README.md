@@ -6,6 +6,9 @@
 (FastAPI)이며, 앱은 Supabase Auth로 로그인해 JWT를 받아 서버 API를 호출한다.
 설계·규칙은 [docs/architecture.md](docs/architecture.md)·[docs/conventions.md](docs/conventions.md) 참고.
 
+Vercel 개발 배포를 맡았다면 [Vercel 배포 가이드](docs/vercel-deployment.md)를 위에서부터
+따라가면 됩니다. 현재 개발 주소는 <https://cosmos-incicrew.vercel.app>입니다.
+
 > **⚠️ 지금 앱을 켜면 검색·추천·보고서가 빈 화면입니다.**
 > 버그가 아닙니다. 프론트에는 데이터가 없고, 백엔드 연동을 기다리는 상태입니다.
 > BSTI 검사와 게스트 로그인은 지금도 정상 동작합니다.

@@ -184,13 +184,18 @@ curl --fail --get "$API_URL/api/v1/products/search" \
 ## Flutter Web 주의사항
 
 Android와 iOS 앱의 HTTP 요청에는 브라우저 CORS 제한이 없습니다. Flutter Web은
-브라우저에서 실행되므로 API 서버가 해당 origin을 허용해야 합니다. 현재 개발 API에는
-웹 클라이언트용 CORS 정책이 아직 포함되지 않았으므로 Chrome에서는 요청이 차단될 수
-있습니다.
+브라우저에서 실행되므로 API 서버가 해당 origin을 허용해야 합니다. 백엔드 배포
+브랜치는 다음 두 origin만 허용합니다.
 
-웹 테스트가 필요하면 사용하는 origin을 먼저 정한 뒤 백엔드 CORS 허용 목록을 별도
-PR로 추가합니다. 개발 편의를 이유로 인증 API에 무조건적인 `*` 정책을 적용하지
-않습니다.
+```text
+https://cosmos-incicrew.vercel.app
+http://localhost:8123
+```
+
+Vercel Preview처럼 다른 주소에서 테스트하려면 정확한 origin을 백엔드 허용 목록에
+추가해야 합니다. 개발 편의를 이유로 인증 API에 무조건적인 `*` 정책을 적용하지
+않습니다. 배포 사이트에서 CORS 오류가 계속 보이면 백엔드 배포 PR이 개발 서버에
+반영되었는지 먼저 확인합니다.
 
 ## 연동 완료 기준
 
