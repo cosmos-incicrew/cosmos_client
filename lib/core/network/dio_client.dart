@@ -68,7 +68,9 @@ final dioProvider = Provider<Dio>((ref) {
     BaseOptions(
       baseUrl: Env.apiBaseUrl,
       connectTimeout: const Duration(seconds: 10),
-      receiveTimeout: const Duration(seconds: 15),
+      // 성분요약·비교해설·성분해설은 Gemini(Vertex) 호출이라 20~30초까지 걸린다.
+      // 15초로 끊으면 제품 상세의 ② 요약이 타임아웃나 정보가 안 뜬다.
+      receiveTimeout: const Duration(seconds: 60),
       headers: {'Content-Type': 'application/json'},
     ),
   );
