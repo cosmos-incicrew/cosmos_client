@@ -28,8 +28,10 @@ class PhoneFrame extends StatelessWidget {
     final isNarrow = screen.width <= frameSize.width + 1;
     if (isNarrow) return child;
 
-    // 프레임을 씌우는 건 데스크톱/웹 미리보기 용도. 릴리스에서는 원본 그대로.
-    if (kReleaseMode) return child;
+    // 프레임을 씌우는 건 데스크톱/웹 미리보기 용도. 실제 모바일 릴리스에서는
+    // 원본 그대로 두되, 웹 배포(릴리스지만 폰이 아님)에서는 프레임을 유지해야
+    // 데스크톱 가로폭에 늘어나 잘리지 않는다. (실제 폰은 위 isNarrow 로 이미 제외됨)
+    if (kReleaseMode && !kIsWeb) return child;
 
     // 세로 여백이 부족하면 비율 유지하며 축소.
     final maxH = screen.height - 32;
