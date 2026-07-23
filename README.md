@@ -7,8 +7,8 @@
 설계·규칙은 [docs/architecture.md](docs/architecture.md)·[docs/conventions.md](docs/conventions.md),
 API 계약 상세는 **[docs/api-contract.md](docs/api-contract.md)** 참고.
 
-Vercel 개발 배포 담당자는 [Vercel 배포 가이드](docs/vercel-deployment.md)를
-위에서부터 따라가면 된다. 현재 개발 주소는 <https://cosmos-incicrew.vercel.app>이다.
+개발·배포 백엔드 주소와 인증 연결 방법은
+[백엔드 연결 가이드](docs/backend-connection.md)를 참고한다.
 
 > **환경 값(`--dart-define`)이 없으면**: 로그인은 게스트·네이버(목업)만 되고,
 > 검색·추천·보고서·비교는 빈 화면이다 (버그 아님 — 에러/빈 결과를 구분해 표시).
