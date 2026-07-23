@@ -76,8 +76,12 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      drawer: navigable ? const AppDrawer() : null,
-      appBar: AppBar(
+      // 수정 모드(`/profile/edit`)는 쉘 안이라 헤더·서랍을 쉘이 이미 갖는다.
+      // 여기서 또 그리면 헤더가 두 번 겹친다 — 온보딩(쉘 밖)에서만 자기 헤더를 쓴다.
+      drawer: (!widget.isEditing && navigable) ? const AppDrawer() : null,
+      appBar: widget.isEditing
+          ? null
+          : AppBar(
         backgroundColor: AppColors.background,
         elevation: 0,
         // Builder 로 감싸야 Scaffold.of 가 이 Scaffold 를 찾는다.
