@@ -73,6 +73,8 @@ grep -rn "TODO(BE)" lib/     # 연동 지점 전체 (엔드포인트 7개)
 ```
 
 스키마·응답 예시·주의사항은 **[docs/api-contract.md](docs/api-contract.md)** 에 정리돼 있습니다.
+개발 서버 주소 설정부터 인증 토큰 주입, 현재 구현된 API와 미구현 API의 차이까지
+따라 하려면 **[백엔드 연결 가이드](docs/backend-connection.md)** 를 먼저 확인하세요.
 
 | 저장소 | 파일 |
 |---|---|
@@ -119,7 +121,7 @@ final container = ProviderContainer(overrides: fakeRepos);
 ## 실행 방법
 
 ```bash
-cd cosmos_app
+cd cosmos_client
 flutter pub get
 
 # 실행 (Supabase 없이도 게스트 로그인으로 동작)
