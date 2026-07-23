@@ -189,7 +189,7 @@ Android와 iOS 앱의 HTTP 요청에는 브라우저 CORS 제한이 없습니다
 
 ```text
 https://cosmos-incicrew.vercel.app
-http://localhost:8123
+http://localhost:3000
 ```
 
 Vercel Preview처럼 다른 주소에서 테스트하려면 정확한 origin을 백엔드 허용 목록에

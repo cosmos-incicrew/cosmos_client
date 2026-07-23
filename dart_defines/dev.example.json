@@ -1,6 +1,10 @@
 {
-  "SUPABASE_URL": "https://your-project.supabase.co",
-  "SUPABASE_PUBLISHABLE_KEY": "sb_publishable_replace_me",
+  "_주석": "dev.json 으로 복사해 값을 채운다. 실행: flutter run --dart-define-from-file=dart_defines/dev.json",
+  "_주석_google": "GOOGLE_WEB_CLIENT_ID 는 안드로이드가 아니라 '웹' 클라이언트 ID (…apps.googleusercontent.com)",
+  "_주석_api": "API_BASE_URL 은 FastAPI 백엔드 주소. 아래 값은 안드로이드 에뮬레이터용(10.0.2.2). 웹은 launch.json 이 http://localhost:8000 으로 덮어쓴다. 실기기면 PC 의 LAN IP 로 바꾼다.",
+
+  "SUPABASE_URL": "https://<project-ref>.supabase.co",
+  "SUPABASE_ANON_KEY": "",
   "GOOGLE_WEB_CLIENT_ID": "",
-  "API_BASE_URL": "https://api.35-255-31-62.nip.io"
+  "API_BASE_URL": "http://10.0.2.2:8000"
 }

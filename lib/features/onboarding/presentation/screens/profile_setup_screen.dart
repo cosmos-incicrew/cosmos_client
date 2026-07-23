@@ -1,22 +1,33 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../app/theme/app_assets.dart';
+import '../../../../app/router/app_shell.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_text_styles.dart';
+import '../../../../core/widgets/app_drawer.dart';
 import '../../../../core/widgets/pixel_box.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../data/profile_store.dart';
 import '../../data/skin_concern.dart';
 
-/// 온보딩 · 프로필 등록 — 닉네임 / 나이 / 성별 입력.
+/// 프로필 화면 — 닉네임 / 나이 / 성별 / 임신·수유 / 피부고민.
+///
+/// 두 모드로 쓴다. 입력 항목이 같아 화면을 나누지 않았다.
+///  - 온보딩 등록 (`/onboarding/profile`): 저장 후 BSTI 또는 홈으로 진행
+///  - 마이페이지 수정 (`/profile/edit`, [isEditing]): 저장 후 마이페이지로 복귀
 ///
 /// 구성(목업): 상단바(햄버거·COSMOS·마이) → My Profile → 닉네임 → 나이
-///            → 성별 2칸 → NEXT / HOME.
+///            → 성별 2칸 → NEXT / HOME (수정 모드에서는 저장).
 /// 폰트·색은 앱 컨셉 그대로 (작은 글씨 Pretendard, 포인트는 갈무리).
 class ProfileSetupScreen extends ConsumerStatefulWidget {
-  const ProfileSetupScreen({super.key});
+  const ProfileSetupScreen({super.key, this.isEditing = false});
+
+  /// 마이페이지에서 들어온 수정 모드인지. 온보딩 진행 버튼 대신 저장 버튼을 둔다.
+  final bool isEditing;
 
   @override
   ConsumerState<ProfileSetupScreen> createState() => _ProfileSetupScreenState();
@@ -37,6 +48,20 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
   final _concerns = <SkinConcern>{};
 
   @override
+  void initState() {
+    super.initState();
+    // 프리필이 없으면 수정 화면이 빈 칸으로 열려, 저장 시 기존 값이 통째로 지워진다.
+    final profile = ref.read(userProfileProvider);
+    _age.text = profile.age?.toString() ?? '';
+    _gender = profile.gender;
+    _pregnancy = profile.pregnancy;
+    _concerns.addAll(profile.concerns);
+    // 카카오는 비즈 앱 전환 전이면 이름을 안 줘서 빈 값일 수 있다.
+    _nickname.text =
+        profile.nickname ?? ref.read(authControllerProvider).displayName ?? '';
+  }
+
+  @override
   void dispose() {
     _nickname.dispose();
     _age.dispose();
@@ -45,20 +70,39 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // 헤더가 가리키는 곳은 모두 온보딩 완료를 요구한다. 온보딩 중에는 눌러도
+    // 라우터가 제자리로 되돌리므로 아예 감춘다.
+    final navigable = ref.watch(authControllerProvider).onboarded;
+
     return Scaffold(
       backgroundColor: AppColors.background,
+      drawer: navigable ? const AppDrawer() : null,
       appBar: AppBar(
         backgroundColor: AppColors.background,
         elevation: 0,
-        leading: const Icon(Icons.menu, color: AppColors.textPrimary, size: 30),
+        // Builder 로 감싸야 Scaffold.of 가 이 Scaffold 를 찾는다.
+        leading: navigable
+            ? Builder(
+                builder: (ctx) => IconButton(
+                  icon: const Icon(Icons.menu,
+                      color: AppColors.textPrimary, size: 30),
+                  onPressed: () => Scaffold.of(ctx).openDrawer(),
+                ),
+              )
+            : null,
         title: Padding(
           padding: const EdgeInsets.only(top: 12),
           child: Image.asset(AppAssets.logoWordmark, height: 44),
         ),
         centerTitle: true,
-        actions: const [
-          Icon(Icons.person, color: AppColors.textPrimary, size: 28),
-          SizedBox(width: 12),
+        actions: [
+          if (navigable)
+            IconButton(
+              icon: const Icon(Icons.person,
+                  color: AppColors.textPrimary, size: 28),
+              onPressed: () => context.go('/profile'),
+            ),
+          const SizedBox(width: 12),
         ],
         toolbarHeight: 80,
       ),
@@ -66,7 +110,9 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(28, 8, 28, 24),
-          child: Column(
+          // 반응형: 넓은 창에서 폼이 좌우로 퍼지지 않게 폰 폭으로 제한.
+          child: ContentWidth(
+              child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // 화면 제목 — 목업의 "My Profile".
@@ -120,19 +166,27 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                 ],
               ),
               const SizedBox(height: 32),
-              // NEXT → BSTI 검사.
-              Align(
-                alignment: Alignment.centerRight,
-                child: _navText('BSTI TEST', onTap: _next),
-              ),
-              const SizedBox(height: 8),
-              // HOME → 한 번 묻고 홈으로.
-              Align(
-                alignment: Alignment.centerRight,
-                child: _navText('HOME', dim: true, onTap: _goHome),
-              ),
+              if (widget.isEditing)
+                // 수정 모드 — 저장하고 마이페이지로 돌아간다.
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: _navText('저장', onTap: _saveAndBack),
+                )
+              else ...[
+                // NEXT → BSTI 검사.
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: _navText('BSTI TEST', onTap: _next),
+                ),
+                const SizedBox(height: 8),
+                // HOME → 한 번 묻고 홈으로.
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: _navText('HOME', dim: true, onTap: _goHome),
+                ),
+              ],
             ],
-          ),
+          )),
         ),
       ),
     );
@@ -266,20 +320,36 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
 
   /// 입력한 프로필을 저장한다. 추천·보고서가 이 값을 읽는다.
   ///
-  /// TODO: 백엔드 붙으면 [UserProfileNotifier.save] 안을 API 호출로 바꾼다.
-  void _save() {
-    ref.read(userProfileProvider.notifier).save(
-          nickname: _nickname.text.trim().isEmpty ? null : _nickname.text.trim(),
-          age: int.tryParse(_age.text.trim()),
-          gender: _gender,
-          pregnancy: _pregnancy == 'pregnant' || _pregnancy == 'nursing',
-          concerns: {..._concerns},
+  /// 프로필 저장 — 로컬 상태를 먼저 갱신하고 서버에 올린다.
+  /// 서버 실패는 [UserProfileNotifier.save] 가 로그로 삼킨다(게스트·오프라인).
+  Future<void> _save() {
+    return ref.read(userProfileProvider.notifier).save(
+          UserProfile(
+            nickname:
+                _nickname.text.trim().isEmpty ? null : _nickname.text.trim(),
+            age: int.tryParse(_age.text.trim()),
+            gender: _gender,
+            pregnancy: _pregnancy,
+            concerns: {..._concerns},
+            // bstiType 은 안 넘긴다 — notifier 가 현재 값을 지켜준다.
+          ),
         );
+  }
+
+  /// 기다리지 않고 돌아가면 마이페이지가 옛 값을 보여준다.
+  Future<void> _saveAndBack() async {
+    await _save();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(const SnackBar(content: Text('프로필을 저장했습니다.')));
+    context.go('/profile');
   }
 
   /// BSTI 검사로. 목데이터 시연이라 입력을 강제하지 않는다.
   void _next() {
-    _save();
+    // 저장을 기다리지 않고 넘어간다 — 서버 왕복 때문에 화면이 멈추지 않게.
+    unawaited(_save());
     // 프로필을 마쳤으면 온보딩 완료 — 안 그러면 라우터가 /bsti 를 막고
     // 스플래시로 되돌린다. (redirect: !onboarded && 온보딩 밖 → /splash)
     ref.read(authControllerProvider.notifier).completeOnboarding();
@@ -314,7 +384,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
     );
     if (go == true && mounted) {
       // 홈으로 나가도 지금까지 고른 고민은 살려둔다 (추천이 읽는다).
-      _save();
+      unawaited(_save());
       // 홈도 온보딩 밖이라 완료 처리해야 리다이렉트에 안 막힌다.
       ref.read(authControllerProvider.notifier).completeOnboarding();
       context.go('/home');

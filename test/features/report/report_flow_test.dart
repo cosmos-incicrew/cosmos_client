@@ -3,7 +3,7 @@
 // BSTI 결과 + 화장대 → 적합도 점수 · 부족 성분 · 추천 제품이
 // 실제로 이어지는지 본다. 데이터는 test/support/fake_repositories.dart.
 // ignore_for_file: depend_on_referenced_packages
-import 'package:cosmos_app/features/bsti/bsti_result_store.dart';
+import 'package:cosmos_app/features/onboarding/data/profile_store.dart';
 import 'package:cosmos_app/features/my_shelf/data/shelf_preference.dart';
 import 'package:cosmos_app/features/report/data/report_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -30,7 +30,7 @@ void main() {
 
   test('검사 + 제품을 담으면 점수와 근거가 계산된다', () async {
     final c = make();
-    c.read(bstiResultProvider.notifier).save('OSPW');
+    await c.read(userProfileProvider.notifier).saveBstiType('OSPW');
     c.read(shelfPreferenceProvider.notifier).add(const ShelfEntry(
           id: 2, // 병풀추출물(cica) — OSPW 권장 성분
           name: '테스트 진정토너',
@@ -48,7 +48,7 @@ void main() {
 
   test('부족 성분에는 그 성분을 가진 제품이 함께 붙는다', () async {
     final c = make();
-    c.read(bstiResultProvider.notifier).save('OSPW');
+    await c.read(userProfileProvider.notifier).saveBstiType('OSPW');
 
     final suggestions = await c.read(shelfSuggestionsProvider.future);
     for (final s in suggestions) {
@@ -61,7 +61,7 @@ void main() {
 
   test('이미 담은 제품은 다시 추천하지 않는다', () async {
     final c = make();
-    c.read(bstiResultProvider.notifier).save('OSPW');
+    await c.read(userProfileProvider.notifier).saveBstiType('OSPW');
 
     final before = await c.read(shelfSuggestionsProvider.future);
     if (before.isEmpty) return; // 추천이 없으면 검증할 것도 없다
@@ -90,10 +90,10 @@ void main() {
           kind: PreferenceKind.like,
         ));
 
-    c.read(bstiResultProvider.notifier).save('OSPW');
+    await c.read(userProfileProvider.notifier).saveBstiType('OSPW');
     final first = await c.read(shelfReportProvider.future);
 
-    c.read(bstiResultProvider.notifier).save('DRNT');
+    await c.read(userProfileProvider.notifier).saveBstiType('DRNT');
     final second = await c.read(shelfReportProvider.future);
 
     expect(first.typeCode, 'OSPW');

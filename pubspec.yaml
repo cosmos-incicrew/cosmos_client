@@ -30,10 +30,11 @@ dependencies:
   hive_flutter: ^1.1.0
   flutter_secure_storage: ^9.2.2
 
-  # 로그인 (게스트 외 소셜은 후속 연동 — 주석 참고)
-  # kakao_flutter_sdk_user: ^1.9.5
-  # google_sign_in: ^6.2.1
-  # sign_in_with_apple: ^6.1.1
+  # 로그인
+  # 구글만 네이티브 SDK가 필요하다 — ID 토큰을 받아 Supabase 로 넘긴다.
+  # 카카오는 Supabase 웹 OAuth(딥링크 복귀)로 처리하므로 SDK 를 안 쓴다.
+  google_sign_in: ^7.2.0
+  # 네이버·애플은 v1 제외 (2026-07-07 결정)
 
   # 유틸
   cupertino_icons: ^1.0.6
@@ -49,6 +50,10 @@ dev_dependencies:
   riverpod_generator: ^2.4.0
   hive_generator: ^2.0.1
 
+  # 앱 런처 아이콘 생성 — assets/icons/app/app_icon.png 를 넣고
+  # `dart run flutter_launcher_icons` 실행 (아래 flutter_launcher_icons 섹션)
+  flutter_launcher_icons: ^0.14.1
+
 flutter:
   uses-material-design: true
   assets:
@@ -61,12 +66,14 @@ flutter:
     - assets/images/bsti/label/    # 유형별 영문 코드 라벨 (파일명: OSPW.png … DRNT.png)
     - assets/images/bsti/icon/     # 권장/주의 성분 아이콘 (recommend.png / avoid.png)
     - assets/images/home/
+    - assets/images/report/   # 보고서 로딩 GIF
     - assets/images/product/   # 제품 이미지 (목데이터용, 파일명: p1.png … p6.png)
     - assets/images/common/
     # 아이콘 (PNG)
     - assets/icons/social/
     - assets/icons/nav/
     - assets/icons/common/
+    - assets/icons/footer/  # 하단바 아이콘 (README 참고)
   # 폰트: 본문 Pretendard + 포인트 갈무리 9/11.
   # 파일을 assets/fonts/ 에 넣기 전엔 flutter가 경고만 내고 시스템 폰트로 대체된다.
   # 파일 넣은 뒤 아래 경로가 실제 파일명과 맞는지만 확인. 자세한 건 assets/fonts/README.md.
@@ -86,3 +93,15 @@ flutter:
         - asset: assets/fonts/Galmuri11.ttf
         - asset: assets/fonts/Galmuri11-Bold.ttf
           weight: 700
+
+# 앱 런처 아이콘 (홈 화면 아이콘) 설정.
+# 1) assets/icons/app/app_icon.png 에 1024x1024 PNG 를 넣는다
+# 2) dart run flutter_launcher_icons   ← 플랫폼별 아이콘 자동 생성
+flutter_launcher_icons:
+  image_path: "assets/icons/app/app_icon.png"
+  android: true
+  ios: false # iOS 폴더가 없는 안드로이드 전용 프로젝트
+  web:
+    generate: true
+  windows:
+    generate: true

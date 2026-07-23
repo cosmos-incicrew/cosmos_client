@@ -5,7 +5,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.cosmos_app"
+    namespace = "com.cosmos.app"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -15,8 +15,8 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.example.cosmos_app"
+        // 구글 OAuth 클라이언트 ID 가 이 값 + SHA-1 지문으로 등록된다 — 바꾸면 재발급해야 한다.
+        applicationId = "com.cosmos.app"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion

@@ -13,12 +13,15 @@ ios/Flutter/flutter_export_environment.sh
 
 # IDE
 .idea/
-.vscode/
+.vscode/*
+# 팀 공용 실행 설정만 공유한다 (웹 3000 포트 고정 + dart-define 주입).
+!.vscode/launch.json
 *.iml
 
 # 민감 정보 (dart-define / env)
 *.env
 env.local.dart
+# 실제 키가 든 dart-define 파일. example 만 커밋한다.
 dart_defines/*.json
 !dart_defines/*.example.json
 
@@ -29,3 +32,7 @@ Thumbs.db
 # 로컬 도구 설정 (개인 환경)
 .claude/
 .vercel/
+.omc
+
+# 로컬 환경 값 (--dart-define-from-file 용) — 커밋 금지
+env.local.json

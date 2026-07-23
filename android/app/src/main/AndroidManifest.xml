@@ -1,6 +1,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- 디버그 빌드는 Flutter 가 자동으로 넣어주지만 릴리스 빌드에는 없다.
+         빠지면 릴리스에서 모든 API·로그인 통신이 실패한다. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <application
-        android:label="cosmos_app"
+        android:label="COSMOS"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
@@ -23,6 +26,14 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+            <!-- 카카오 로그인 딥링크 복귀. scheme/host 는 Env.authRedirectUrl
+                 (cosmos://login-callback) 과 글자까지 같아야 한다. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="cosmos" android:host="login-callback"/>
             </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.
