@@ -136,8 +136,11 @@ flutter run -d web-server --web-hostname 0.0.0.0 --web-port 8123
 # Supabase / API 연동 시 (값 채운 뒤):
 flutter run \
   --dart-define=SUPABASE_URL=https://xxxx.supabase.co \
-  --dart-define=SUPABASE_ANON_KEY=eyJhbG... \
+  --dart-define=SUPABASE_PUBLISHABLE_KEY=sb_publishable_... \
   --dart-define=API_BASE_URL=https://api.yourservice.com
+
+# 또는 dart_defines/dev.example.json을 dev.json으로 복사하고 값을 채운 뒤:
+flutter run --dart-define-from-file=dart_defines/dev.json
 ```
 
 ## 현재 동작 범위

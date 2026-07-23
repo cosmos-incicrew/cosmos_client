@@ -19,6 +19,8 @@ ios/Flutter/flutter_export_environment.sh
 # 민감 정보 (dart-define / env)
 *.env
 env.local.dart
+dart_defines/*.json
+!dart_defines/*.example.json
 
 # OS
 .DS_Store
