@@ -89,32 +89,64 @@ if (token != null) {
 repository가 `Dio`를 생성하지 않도록 Riverpod의 `dioProvider`를 주입합니다.
 
 ```dart
+// product_repository.dart
+import 'package:dio/dio.dart';
+
+class ProductRepository {
+  ProductRepository(this._dio);
+
+  final Dio _dio;
+
+  // 기존 메서드...
+}
+
+// product_providers.dart
 final productRepositoryProvider = Provider<ProductRepository>((ref) {
   return ProductRepository(ref.watch(dioProvider));
 });
 ```
 
-`IngredientRepository`도 같은 방식으로 연결합니다. 각 메서드에서는 상대 경로만
-사용하고, 응답을 `Product.fromJson` 또는 `Ingredient.fromJson`으로 변환합니다.
+현재 repository에는 인자 없는 `const` 생성자만 있으므로 위의 `Dio` 필드와 생성자를
+먼저 추가해야 합니다. `IngredientRepository`도 같은 방식으로 바꾸고
+`ingredientRepositoryProvider`에서 `dioProvider`를 주입합니다.
+
+각 메서드에서는 상대 경로만 사용합니다. 현재 검색 API의 응답은 목록 자체가 아니라
+`{"query": "...", "results": [...]}` 형태이므로 `results`를 꺼내야 합니다.
 
 ```dart
 final response = await _dio.get<Map<String, dynamic>>(
   '/api/v1/products/search',
   queryParameters: {'q': query},
 );
+final results = response.data?['results'] as List<dynamic>? ?? const [];
+
+return results.map((value) {
+  final item = value as Map<String, dynamic>;
+  return Product(
+    id: item['id'] as int,
+    name: item['product_name'] as String,
+    brand: item['brand'] as String?,
+    mainCategory: item['main_category'] as String?,
+    subCategory: item['sub_category'] as String?,
+    productUrl: item['product_url'] as String?,
+  );
+}).toList();
 ```
 
-응답의 최상위 구조는 메서드마다 다르므로 `response.data`를 바로 `List`로 단정하지
-말고 Swagger의 response schema와 실제 모델을 대조합니다.
+현재 검색 응답은 기존 `Product.fromJson`과 필드명이 달라 그대로 호출하면 안 됩니다.
+제품 검색은 위처럼 검색 후보를 명시적으로 변환할 수 있습니다. 성분 검색은 서버의
+`name_kr`/`name_en` 및 nullable `name_en`과 클라이언트 모델의
+`name_kor`/필수 `name_eng`가 다르므로, 모델 계약을 먼저 맞춘 뒤 adapter를
+작성해야 합니다.
 
 ## 5. 현재 API와 프론트 요구사항 비교
 
-실행 중인 서버에서 프론트 repository와 바로 연결할 수 있는 조회 API는 일부입니다.
+실행 중인 서버에 검색 API는 있지만 기존 repository 모델과 바로 호환되지는 않습니다.
 
 | 프론트 메서드 | 현재 개발 API | 상태 |
 |---|---|---|
-| `ProductRepository.search` | `GET /api/v1/products/search` | 연결 가능 |
-| `IngredientRepository.search` | `GET /api/v1/ingredients/search` | 연결 가능 |
+| `ProductRepository.search` | `GET /api/v1/products/search` | 위 adapter를 추가하면 연결 가능 |
+| `IngredientRepository.search` | `GET /api/v1/ingredients/search` | 필드명·nullable 계약 조정 필요 |
 | 제품의 성분 ID 조회 | `GET /api/v1/products/{product_id}/ingredients` | 별도 흐름에서 사용 가능 |
 | `ProductRepository.listAll` | 대응 API 없음 | 백엔드 계약 필요 |
 | `ProductRepository.getByIngredient` | 대응 API 없음 | 백엔드 계약 필요 |
