@@ -62,13 +62,59 @@ InterceptorsWrapper buildAuthInterceptor({
   );
 }
 
+/// 일시적 오류 재시도 횟수 표식.
+const _retryCountKey = 'transient_retry_count';
+
+/// 일시적 오류(콜드스타트·순간 장애) 자동 재시도 인터셉터.
+///
+/// 배포 백엔드가 GCE 라 오래 쉬면 첫 요청에서 인스턴스가 깨어나며
+/// 타임아웃·5xx 가 날 수 있다. 그때 바로 에러 화면을 띄우는 대신 짧게
+/// backoff 하며 최대 [maxRetries] 회 다시 시도한다 — 사용자는 "살짝 느리게
+/// 뜸"으로 느낀다. (401 은 [buildAuthInterceptor] 담당이라 여기선 제외)
+InterceptorsWrapper buildRetryInterceptor({
+  required Dio dio,
+  int maxRetries = 2,
+}) {
+  bool isTransient(DioException e) {
+    switch (e.type) {
+      case DioExceptionType.connectionTimeout:
+      case DioExceptionType.receiveTimeout:
+      case DioExceptionType.sendTimeout:
+      case DioExceptionType.connectionError:
+        return true;
+      default:
+        final code = e.response?.statusCode ?? 0;
+        return code >= 500 && code < 600; // 502·503·504 (콜드스타트 등)
+    }
+  }
+
+  return InterceptorsWrapper(
+    onError: (e, handler) async {
+      final count = (e.requestOptions.extra[_retryCountKey] as int?) ?? 0;
+      if (!isTransient(e) || count >= maxRetries) {
+        return handler.next(e);
+      }
+      // 0.5s → 1.0s backoff 후 재시도.
+      await Future<void>.delayed(Duration(milliseconds: 500 * (count + 1)));
+      final options = e.requestOptions..extra[_retryCountKey] = count + 1;
+      try {
+        handler.resolve(await dio.fetch<dynamic>(options));
+      } on DioException catch (retryError) {
+        handler.next(retryError);
+      }
+    },
+  );
+}
+
 /// 서버 REST 호출용 Dio. Supabase 세션 토큰을 자동으로 실어 보낸다.
 final dioProvider = Provider<Dio>((ref) {
   final dio = Dio(
     BaseOptions(
       baseUrl: Env.apiBaseUrl,
       connectTimeout: const Duration(seconds: 10),
-      receiveTimeout: const Duration(seconds: 15),
+      // 성분요약·비교해설·성분해설은 Gemini(Vertex) 호출이라 20~30초까지 걸린다.
+      // 15초로 끊으면 제품 상세의 ② 요약이 타임아웃나 정보가 안 뜬다.
+      receiveTimeout: const Duration(seconds: 60),
       headers: {'Content-Type': 'application/json'},
     ),
   );
@@ -85,6 +131,10 @@ final dioProvider = Provider<Dio>((ref) {
       signOut: SupabaseService.signOutIfSignedIn,
     ),
   );
+
+  // 401 회복(위) 다음에 일시적 오류 재시도를 건다 — 둘은 서로 다른 오류를
+  // 다뤄 겹치지 않는다(401 vs 타임아웃·5xx).
+  dio.interceptors.add(buildRetryInterceptor(dio: dio));
 
   return dio;
 });
