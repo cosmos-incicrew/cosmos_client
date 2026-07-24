@@ -7,6 +7,9 @@ import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 import '../../../core/config/env.dart';
 import '../../../core/network/supabase_client.dart';
 import 'auth_state.dart';
+// 웹은 현재 탭 리다이렉트, 네이티브는 스텁(호출 안 됨).
+import 'oauth_web_redirect.dart'
+    if (dart.library.js_interop) 'oauth_web_redirect_web.dart';
 
 /// 카카오 로그인은 브라우저를 거쳐 딥링크로 돌아온다 — 그 사이 사용자가 화면을
 /// 떠나거나 취소하면 세션이 영영 안 오므로, 무한 대기 대신 끊는다.
@@ -49,12 +52,7 @@ class AuthRepository {
       if (!Env.hasSupabase) {
         throw const AuthNotConfiguredException('Supabase 설정이 아직 없습니다.');
       }
-      // origin 으로 복귀시킨다 — 현재 URL(해시 라우팅의 #/onboarding 등)을 그대로
-      // 쓰면 복귀 후 온보딩 화면이 잠깐 노출됐다 프로필로 넘어가 깜빡인다.
-      await SupabaseService.auth.signInWithOAuth(
-        sb.OAuthProvider.google,
-        redirectTo: Uri.base.origin,
-      );
+      await _launchWebOAuth(sb.OAuthProvider.google);
       return AuthState.unauthenticated; // 페이지가 리다이렉트되어 실제로는 복귀 안 함
     }
     if (!Env.hasGoogleSignIn) {
@@ -96,6 +94,16 @@ class AuthRepository {
     if (!Env.hasSupabase) {
       throw const AuthNotConfiguredException('Supabase 설정이 아직 없습니다.');
     }
+    // 웹은 현재 탭이 통째로 리다이렉트되므로 signedIn 대기가 무의미하다 —
+    // 페이지가 떠났다 origin 으로 복귀하면 restoreSession 이 세션을 잡는다.
+    // (signInWithOAuth 의 팝업 방식은 차단되므로 URL 직접 리다이렉트를 쓴다)
+    if (kIsWeb) {
+      await _launchWebOAuth(
+        sb.OAuthProvider.kakao,
+        queryParams: const {'scope': 'profile_nickname profile_image'},
+      );
+      return AuthState.unauthenticated;
+    }
     // onAuthStateChange 는 BehaviorSubject 라 구독하는 순간 마지막 이벤트를 재생한다.
     // `session != null` 만 보면 이전 로그인 세션이나 토큰 갱신이 곧바로 걸려서,
     // 브라우저가 뜨기도 전에 "로그인 성공"으로 끝나버린다. 그래서 두 겹으로 거른다.
@@ -117,8 +125,9 @@ class AuthRepository {
         // 네이티브는 딥링크로 앱에 돌아오지만, 웹은 그 스킴을 못 연다.
         // 웹은 origin 으로 복귀 — 현재 URL(#/onboarding)로 돌아오면 온보딩이
         // 잠깐 노출됐다 프로필로 넘어가 깜빡인다. origin 은 그 fragment 를 뗀다.
-        redirectTo: kIsWeb ? Uri.base.origin : Env.authRedirectUrl,
-        // 인앱 웹뷰 대신 외부 브라우저 — 카카오톡 앱 전환 로그인을 쓰려면 필요하다.
+        // 딥링크로 앱에 복귀 — AndroidManifest intent-filter 와 글자까지 같아야 한다.
+        redirectTo: Env.authRedirectUrl,
+        // 인앱 웹뷰 대신 외부 브라우저 — 카카오톡 앱 전환 로그인에 필요하다.
         authScreenLaunchMode: sb.LaunchMode.externalApplication,
         // Supabase 는 카카오에 account_email 을 기본으로 요구하는데, 이 항목은
         // 비즈 앱만 설정할 수 있다. 일반 앱에서는 카카오가 invalid_scope 로 끊는다.
@@ -134,6 +143,21 @@ class AuthRepository {
       // (Future.timeout 은 원본을 취소하지 못해, 안 끊으면 시도마다 하나씩 쌓인다)
       await subscription.cancel();
     }
+  }
+
+  /// 웹 OAuth 공통 경로. signInWithOAuth 는 웹에서 window.open(팝업)을 써서
+  /// 팝업 차단에 막히므로, URL 만 받아 현재 탭을 직접 리다이렉트한다.
+  /// 페이지가 통째로 떠났다 origin 으로 복귀하고, 세션은 restoreSession 이 잡는다.
+  Future<void> _launchWebOAuth(
+    sb.OAuthProvider provider, {
+    Map<String, String>? queryParams,
+  }) async {
+    final res = await SupabaseService.auth.getOAuthSignInUrl(
+      provider: provider,
+      redirectTo: Uri.base.origin,
+      queryParams: queryParams,
+    );
+    redirectToOAuthUrl(res.url);
   }
 
   /// 애플 로그인 — v1 제외 (안드로이드 전용 앱).
