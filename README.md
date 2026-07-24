@@ -1,183 +1,206 @@
 # cosmos_client
 
-화장품 성분 기반 추천 앱 — Flutter 클라이언트 (프론트)
+화장품 성분 기반 추천 앱의 Flutter 클라이언트입니다. 안드로이드와 웹으로 실행합니다.
 
-백엔드는 별도 저장소 [cosmos_server](https://github.com/cosmos-incicrew/cosmos_server)
-(FastAPI)이며, 앱은 Supabase Auth로 로그인해 JWT를 받아 서버 API를 호출한다.
-설계·규칙은 [docs/architecture.md](docs/architecture.md)·[docs/conventions.md](docs/conventions.md),
-API 계약 상세는 **[docs/api-contract.md](docs/api-contract.md)** 참고.
+백엔드는 별도 저장소 [cosmos_server](https://github.com/cosmos-incicrew/cosmos_server)(FastAPI)이며,
+앱은 Supabase Auth로 로그인해 받은 JWT로 서버 API를 호출합니다.
 
-> **환경 값(`--dart-define`)이 없으면**: 로그인은 게스트·네이버(목업)만 되고,
-> 검색·추천·보고서·비교는 빈 화면이다 (버그 아님 — 에러/빈 결과를 구분해 표시).
-> 값을 넣으면 그대로 실서버를 호출한다. 아래 [실행 방법](#실행-방법) 참고.
+<!-- 스크린샷: 홈 · BSTI 결과 · 제품 상세 · 비교표 · 화장대 보고서 (추후 추가) -->
 
-## 기술 스택
+## 주요 기능
 
-| 구분 | 사용 기술 |
-|------|-----------|
-| 프레임워크 | Flutter (Dart) |
-| 디자인 | Material 3 + cosmos 커스텀 테마 (픽셀 컨셉: PixelBox·갈무리 서체) |
-| 상태관리 | Riverpod (`flutter_riverpod`) |
-| 라우팅 | `go_router` (StatefulShellRoute — 고정 헤더/푸터) |
-| 네트워킹 | `supabase_flutter`(인증) + `dio`(API, JWT 자동 첨부) |
-| 이미지 로딩 | `cached_network_image` |
-| 로컬 저장소 | Hive + `flutter_secure_storage` |
-| 로그인 | 카카오(웹 OAuth 딥링크) · 구글(네이티브) · 게스트 · 네이버(목업) |
+화면 전반에 공통 규칙이 하나 있습니다. **근거가 없으면 점수나 설명을 지어내지 않고
+"판단 정보 부족"이라고 말합니다.** 아래 기능들은 모두 이 규칙을 따릅니다.
 
-## 화면 구조 — 헤더·푸터 고정
+### 화장대와 검색
 
-모든 메인 화면은 쉘(`AppShell`) 안에 있다. **헤더(햄버거 서랍 · COSMOS 로고 ·
-마이)와 푸터(화장대/홈/마이 탭)는 쉘이 고정**으로 갖고, 화면들은 자기 AppBar
-없이 body 상단 `ScreenTitle`(뒤로가기+제목)만 갖는다.
-쉘 밖은 로그인 전 진입 흐름(스플래시·온보딩)뿐이다.
+제품명이나 성분명으로 검색해 화장대에 담습니다. 제품 상세에서는 담긴 제품의 성분
+목록과 요약 해설을, 성분 상세에서는 개별 성분의 설명을 봅니다.
+`/shelf → add(검색) → product → ingredient`로 이어지는 흐름이고, 검색과 해설은 모두
+서버 API를 씁니다.
 
-**반응형**: 폰 시안 기준 레이아웃이라 콘텐츠를 최대 480px 중앙 정렬로 제한한다
-(`ContentWidth`, 쉘이 일괄 적용). 넓은 표(비교 표 등)는 자기 영역 안에서만
-가로 스크롤한다.
+### 성분 해설
+
+개별 성분의 설명과 주의사항을 보여줍니다. 서버가 `확인 불가`를 돌려주면 에러 화면 대신
+"정보 없음"으로 안내합니다. 안전성 표기는 세 가지를 구분합니다 — 공식 규제(경고를
+강조), 일반, 안전성 확인 불가. 마지막은 안전하다는 뜻이 아니라 판단할 자료가 없다는
+뜻이라 그렇게 읽히도록 문구를 씁니다. 요약문의 "주의:" 줄은 따로 떼어 강조합니다.
+
+### 제품 비교
+
+여러 제품의 성분을 표로 비교하고 해설을 함께 보여줍니다. 비교표는 서버 응답을 그대로
+쓰지만, **제품 궁합 점수는 앱이 계산합니다**(`compare/engine/compare_match.dart`).
+기본 70점에서 시작해 같이 쓰면 좋은 성분 조합마다 가점, 공통 성분이 있으면 가점,
+규제 성분이 두 제품에 겹치면 감점하고 5~100 사이로 자릅니다. 근거가 없는 항목은
+빈 목록으로 두고 화면이 "없어요"를 표시합니다.
+
+### BSTI 16타입
+
+문항 20개로 피부 타입을 판정합니다. 문항·유형·성분 사전을 앱이 직접 들고 채점합니다.
+서버 DB에 BSTI 매핑이 없어서 내린 팀 결정이고, 보고서의 적합도는 성분 이름 정확
+일치로 잇습니다(`bsti_name_matcher.dart`). 매칭되지 않은 성분은 점수를 매기지 않습니다.
+결과 저장은 서버 프로필을 사용합니다.
+
+### 맞춤 추천
+
+피부 타입, 피부 고민, 기피 성분을 반영해 카테고리별로 성분과 제품을 추천합니다.
+화면 상단에 **무엇을 반영했는지 그대로 보여줍니다** — BSTI 검사를 하지 않았으면 타입을
+언급하지 않고, 반영한 항목만 적습니다.
+
+### 화장대 보고서
+
+화장대에 담긴 제품이 내 유형에 얼마나 맞는지 0~100으로 평가하고, 부족한 성분을
+알려줍니다. 권장 성분과 주의 성분이 하나도 겹치지 않으면 점수를 내지 않고 "판단 정보
+부족"으로 표시합니다. 점수 구간은 잘 맞아요(80 이상), 무난해요(50 이상),
+주의가 필요해요로 나눕니다.
+
+## 요구 사항
+
+- Flutter 3.27 이상 / Dart 3.6 이상
+- Android Studio 또는 Chrome
+- 개발용 Supabase 값 (팀 공유)
+
+## 설치·실행
+
+가장 빠른 경로는 배포된 개발 API에 붙는 것입니다. 서버를 로컬에 띄울 필요가 없습니다.
+
+```bash
+flutter pub get
+cp dart_defines/dev.example.json dart_defines/dev.json
+```
+
+`dart_defines/dev.json`에 값을 채웁니다.
+
+```json
+{
+  "SUPABASE_URL": "https://<project-ref>.supabase.co",
+  "SUPABASE_PUBLISHABLE_KEY": "sb_publishable_...",
+  "GOOGLE_WEB_CLIENT_ID": "...apps.googleusercontent.com",
+  "API_BASE_URL": "https://api.....nip.io"
+}
+```
+
+```bash
+flutter run --dart-define-from-file=dart_defines/dev.json
+```
+
+`dev.json`은 `.gitignore`에 있어 커밋되지 않습니다. `SUPABASE_SERVICE_ROLE_KEY`나
+Kakao Admin 키처럼 서버용 비밀값은 앱에 넣지 않습니다.
+
+**값 없이 실행하면** 게스트·네이버(목업) 로그인만 되고 검색·추천·보고서·비교는 빈
+화면입니다. 버그가 아니라 의도된 동작이고, 에러와 빈 결과를 구분해 표시합니다.
+
+**로그인 없이 API를 확인할 때는** 서버 저장소에서 개발용 토큰을 발급해 넘깁니다.
+약 1시간 유효하며 릴리즈 빌드에서는 무시됩니다.
+
+```bash
+flutter run \
+  --dart-define=API_BASE_URL=http://localhost:8000 \
+  --dart-define=DEV_JWT=eyJ...
+```
+
+## 설정
+
+| 환경값 | 설명 |
+|---|---|
+| `SUPABASE_URL` | Supabase 프로젝트 URL. 비면 카카오·구글 버튼이 "준비 중"으로 안내합니다 |
+| `SUPABASE_PUBLISHABLE_KEY` | 공개 클라이언트 키. 전환 기간에는 `SUPABASE_ANON_KEY`도 읽습니다 |
+| `API_BASE_URL` | 백엔드 주소. 끝에 `/`를 붙이지 않습니다. 비면 저장소가 호출 없이 빈 결과를 돌려줍니다 |
+| `GOOGLE_WEB_CLIENT_ID` | 구글 로그인용 **웹** 클라이언트 ID (안드로이드 ID가 아닙니다) |
+| `DEV_JWT` | 개발용 토큰. 실제 세션이 있으면 그쪽이 우선합니다 |
+
+카카오 로그인 딥링크는 `cosmos://login-callback`이고 AndroidManifest의 intent-filter와
+글자까지 같아야 합니다. 다르면 브라우저에서 로그인은 끝나는데 앱으로 돌아오지 않습니다.
+
+Flutter Web은 브라우저 CORS 제한을 받습니다. 서버가 허용하는 origin은
+`https://cosmos-incicrew.vercel.app`과 `http://localhost:3000`입니다. 다른 주소에서
+테스트하려면 백엔드 허용 목록에 정확한 origin을 추가해야 합니다.
+
+## 서버 연동
+
+화면은 저장소(repository)만 봅니다. 저장소가 실제 엔드포인트를 호출하고, 서버 필드명
+(snake_case)과 앱 모델의 차이를 저장소에서 흡수합니다. 모든 호출에 Supabase JWT가
+자동으로 붙습니다(`dio_client.dart` 인터셉터).
+
+| 엔드포인트 | 앱 메서드 | 쓰는 화면 |
+|---|---|---|
+| `GET /api/v1/products/search` | `ProductRepository.search` | 검색·비교 |
+| `GET /api/v1/products/{id}/ingredients` | `.getIngredientIds` | 제품 상세·보고서 |
+| `POST /api/v1/products/compare` | `.compare` | 비교 |
+| `GET /api/v1/ingredients/search` | `IngredientRepository.search` | 검색 |
+| `GET /api/v1/ingredients/{id}/detail` | `.getDetail` | 성분 해설 |
+| `POST /api/v1/ingredients/product-summary` | `.getProductSummary` | 제품 상세 요약 |
+| `POST /api/v1/ingredients/comparison-summary` | `.getComparisonSummary` | 비교 해설 |
+| `GET` `POST /api/v1/users/me/profile`, `DELETE /users/me` | `ProfileRepository` | 온보딩·프로필·탈퇴 |
+
+## 프로젝트 구조
+
+```
+lib/
+├─ app/
+│  ├─ router/      go_router + AppShell (고정 헤더·푸터, ContentWidth)
+│  └─ theme/       색·타이포·에셋 경로
+├─ core/
+│  ├─ config/      Env (--dart-define)
+│  ├─ network/     dio(JWT 인터셉터) + Supabase 클라이언트
+│  ├─ policy/      표시 정책
+│  ├─ storage/     Hive + secure storage
+│  └─ widgets/     PixelBox · PixelButton · ScreenTitle · AppDrawer
+└─ features/       기능별로 data/(모델·저장소·프로바이더) + presentation/
+   ├─ auth/            로그인 (카카오·구글 실연동, 네이버 목업, 게스트)
+   ├─ onboarding/      프로필 등록·피부고민·완료
+   ├─ home/            홈 메뉴
+   ├─ bsti/            피부 MBTI — 데이터·엔진·화면을 한곳에 둔 평탄 구조
+   ├─ my_shelf/        화장대·검색·제품/성분 상세
+   ├─ compare/         다중 제품 비교
+   ├─ product/ ingredient/   모델과 저장소 (API 연동 지점)
+   ├─ recommendation/  맞춤 추천
+   ├─ report/          화장대 보고서
+   └─ profile/         마이페이지
+```
+
+**화면 구조** — 메인 화면은 모두 쉘(`AppShell`) 안에 있습니다. 헤더(햄버거 서랍 ·
+COSMOS 로고 · 마이)와 푸터(화장대/홈/마이 탭)는 쉘이 고정으로 갖고, 각 화면은 자기
+AppBar 없이 body 상단의 `ScreenTitle`만 둡니다. 쉘 밖은 로그인 전 진입 흐름뿐입니다.
 
 ```
 쉘 안 (헤더·푸터 고정)
 ├─ 화장대 탭   /shelf → add(검색·담기) → product(제품 상세) → ingredient(성분 상세)
-├─ 홈 탭       /home → /bsti(검사) · /recommendation(추천) · /report(보고서) · /compare(비교)
+├─ 홈 탭       /home → /bsti · /recommendation · /report · /compare
 └─ 마이 탭     /profile → edit(프로필 수정)
 
 쉘 밖 (로그인 전)
 └─ /splash → /onboarding → 로그인 시트 → profile → concerns → done
 ```
 
-## API 구성 (프론트 ↔ cosmos_server)
-
-**원칙: 화면은 저장소(repository)만 본다.** 저장소가 실제 엔드포인트를
-호출하고, 서버 필드명(snake_case)과 프론트 모델의 차이를 저장소에서 흡수한다.
-전 호출에 Supabase JWT 가 자동 첨부된다 (`dio_client.dart` 인터셉터).
-
-### 연동 완료 (백엔드 코드와 대조 검증됨)
-
-| 엔드포인트 | 프론트 메서드 | 쓰는 화면 |
-|---|---|---|
-| `GET /api/v1/products/search` | `ProductRepository.search` | 검색·비교 |
-| `GET /api/v1/products/{id}/ingredients` | `.getIngredientIds` | 제품 상세·보고서 |
-| `POST /api/v1/products/compare` | `.compare` | 비교 |
-| `GET /api/v1/ingredients/search` | `IngredientRepository.search` | 검색 |
-| `GET /api/v1/ingredients/{id}/detail` | `.getDetail` | 성분 해설 (①) |
-| `POST /api/v1/ingredients/product-summary` | `.getProductSummary` | 제품 상세 요약 (②) |
-| `POST /api/v1/ingredients/comparison-summary` | `.getComparisonSummary` | 비교 해설 (③) |
-| `GET·POST /api/v1/users/me/profile`, `DELETE /users/me` | `ProfileRepository` | 온보딩·프로필·탈퇴 |
-
-주의해서 매핑한 것 (자세한 건 [docs/api-contract.md](docs/api-contract.md)):
-
-- 서버는 `name_kr`/`name_en`, 프론트 모델은 `nameKor`/`nameEng` — 저장소가 명시 매핑
-- 제품 검색 응답의 id 필드는 `id` (`product_id` 아님)
-- 검색 응답에 성분 id 없음 — 2단계 설계 (`/products/{id}/ingredients` 별도)
-- ①②③의 `status: "확인 불가"` 는 에러가 아님 → "정보 없음" 안내로 표시
-- `safety` 3형태: `[공식 규제]`(경고 강조) / 일반 / `안전성 확인 불가`(= 모른다, 안전 아님)
-- ②③ `summary` 의 "주의: " 줄은 분리해 강조 표시
-- ③ 요청은 compare 응답을 그대로 전달 (여분 필드는 서버가 무시)
-
-### 서버에 있지만 미연동
-
-| 엔드포인트 | 비고 |
-|---|---|
-| `POST /api/v1/recommendations` | RAG 추천 — 현재 추천 화면은 프론트 계산. 개편 시 전환 |
-| `POST /api/v1/bsti/submit` | 501 스텁 — BSTI 는 프론트 완결이라 불필요 (아래) |
-
-### BSTI 는 프론트 완결 (팀 결정)
-
-검사 문항 20 · 유형 16 · 성분 사전 34 전부 프론트가 들고 채점한다.
-서버 DB에 BSTI 매핑이 없으므로, 보고서 적합도는 성분 **이름 정확 일치**로
-프론트가 잇는다 (`bsti_name_matcher.dart`). 매칭 안 된 성분은 점수를
-지어내지 않고 "판단 정보 부족"으로 표시된다. 결과 저장은 프로필(서버)을 탄다.
-
-## 폴더 구조
-
-```
-lib/
-├─ app/
-│  ├─ router/              # go_router + AppShell (고정 헤더·푸터, ContentWidth)
-│  └─ theme/               # 색·타이포·에셋 경로
-├─ core/
-│  ├─ config/              # Env (--dart-define)
-│  ├─ network/             # dio (JWT 인터셉터) + Supabase 클라이언트
-│  ├─ storage/             # Hive + secure storage
-│  └─ widgets/             # PixelBox·PixelButton·ScreenTitle·AppDrawer 등
-└─ features/               # 기능별: data/(모델·저장소·프로바이더) + presentation/
-   ├─ auth/                # 로그인 (카카오·구글 실연동, 네이버 목업, 게스트)
-   ├─ onboarding/          # 프로필 등록·피부고민·완료 (서버 프로필 연동)
-   ├─ home/                # 홈 메뉴
-   ├─ bsti/                # 피부 MBTI ★ 평탄 구조 (데이터·엔진·화면 한곳)
-   ├─ my_shelf/            # 화장대·검색·제품/성분 상세 (①② 해설 연동)
-   ├─ compare/             # 다중 제품 비교 (비교표 + ③ 해설)
-   ├─ product/ ingredient/ # 모델 + 저장소 (API 연동 지점)
-   ├─ recommendation/      # 맞춤 추천 (유형·고민·기피 반영, 프론트 계산)
-   ├─ report/              # 화장대 보고서 (적합도 + 부족 성분)
-   └─ profile/             # 마이페이지 (로그아웃·탈퇴)
-```
-
-## 실행 방법
-
-```bash
-flutter pub get
-
-# 환경 값 없이 (게스트 + 빈 화면 데모)
-flutter run -d chrome
-
-# 실서버 연동 (값은 팀 공유 — README of cosmos_server 참고)
-flutter run -d chrome \
-  --dart-define=SUPABASE_URL=https://xxxx.supabase.co \
-  --dart-define=SUPABASE_ANON_KEY=eyJhb... \
-  --dart-define=API_BASE_URL=http://localhost:8000 \
-  --dart-define=GOOGLE_WEB_CLIENT_ID=xxx.apps.googleusercontent.com
-```
-
-- `API_BASE_URL` 비어 있으면 저장소는 호출 없이 빈 결과 (에러 화면 아님)
-- Supabase 값 없으면 카카오·구글 버튼은 "준비 중" 안내
-- 카카오 딥링크(`cosmos://login-callback`)는 AndroidManifest 와 일치해야 함
-
-**로그인 없이 API 테스트 (개발용 토큰):**
-
-서버의 모든 `/api/v1/*` 는 JWT 필수라, OAuth 설정 전에는 로그인할 방법이
-없어 401 이 뜬다. 백엔드 레포에서 개발용 토큰을 발급해 꽂으면 우회된다:
-
-```bash
-# cosmos_server 폴더에서 (요구사항·주의는 그쪽 문서 참고)
-uv run python scripts/dev_token.py     # → eyJ... 출력
-
-# 프론트 실행 시 토큰을 넘긴다 (릴리즈 빌드에선 무시됨)
-flutter run -d chrome \
-  --dart-define=API_BASE_URL=http://localhost:8000 \
-  --dart-define=DEV_JWT=eyJ...
-```
-
-토큰은 약 1시간 유효 — 401 이 다시 뜨면 새로 발급한다.
-실제 로그인 세션이 생기면 세션 토큰이 우선한다.
-
-앱 아이콘: `assets/icons/app/app_icon.png`(1024×1024) 넣고
-`dart run flutter_launcher_icons`.
+폰 시안 기준 레이아웃이라 콘텐츠를 최대 480px 중앙 정렬로 제한합니다(`ContentWidth`,
+쉘이 일괄 적용). 비교표처럼 넓은 표는 자기 영역 안에서만 가로 스크롤합니다.
 
 ## 테스트
 
 ```bash
-flutter test        # 전체 (159개)
+flutter test    # 158개, 환경값 없이 통과
 ```
 
 | 위치 | 내용 |
 |---|---|
-| `test/smoke_screens_test.dart` | 12개 화면을 실제 렌더링 — 예외·오버플로우 검증 |
+| `test/smoke_screens_test.dart` | 12개 화면을 실제로 렌더링해 예외·오버플로우 확인 |
 | `test/features/bsti/` | BSTI 데이터 정합성·채점·이름 매칭 |
-| `test/features/product/` `ingredient/` | **명세서 예시 JSON 원문**으로 파싱 검증 |
+| `test/features/product/` `ingredient/` | 명세서 예시 JSON 원문으로 파싱 검증 |
 | `test/features/report/` `recommendation/` | 적합도·추천 규칙 |
-| `test/features/auth/` `onboarding/` | 로그인·프로필 (팀원 작성 포함) |
-| `test/support/fake_repositories.dart` | 가짜 저장소 — `ProviderContainer(overrides: fakeRepos)` |
+| `test/features/auth/` `onboarding/` | 로그인·프로필 |
+| `test/support/fake_repositories.dart` | 가짜 저장소 (`ProviderContainer(overrides: fakeRepos)`) |
 
-샘플 데이터는 `test/` 안에만 둔다. `lib/` 에 목데이터 없음
-(예외: 네이버 로그인 목업 — 의도된 것).
+샘플 데이터는 `test/` 안에만 둡니다. `lib/`에는 목데이터가 없습니다. 네이버 로그인
+목업만 예외이고 의도된 것입니다.
 
-## 남은 작업
+## 문서
 
-`grep -rn "TODO(BE)" lib/` 로 백엔드 요청 목록 확인.
-
-1. 제품 상세의 **전체 성분 이름 목록** — 엔드포인트 없음. 지금은 대표성분 3개만
-   행으로, 나머지는 "외 N개 분석됨" (성분 일괄 조회 생기면 풀림)
-2. 성분→제품 역조회 — 성분 상세 "포함 제품"·보고서 추천 제품이 빈 상태
-3. 추천 화면의 `POST /recommendations` 전환 (현재 프론트 계산)
-4. 마이페이지 찜한 제품·최근 본 제품·설정 (스텁)
+| 문서 | 내용 |
+|---|---|
+| [architecture.md](docs/architecture.md) | 앱 구조와 레이어 |
+| [conventions.md](docs/conventions.md) | 네이밍·상태관리·PR 규칙 |
+| [api-contract.md](docs/api-contract.md) | 서버 응답 필드와 매핑 계약 |
+| [design-system.md](docs/design-system.md) | 색·타이포·컴포넌트 |
+| [bsti-spec.md](docs/bsti-spec.md) | BSTI 문항·유형·채점 |
+| [auth-setup.md](docs/auth-setup.md) | 카카오·구글 로그인 설정 |
