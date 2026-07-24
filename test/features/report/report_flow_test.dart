@@ -46,39 +46,37 @@ void main() {
     expect(report.details, isNotEmpty);
   });
 
-  test('부족 성분에는 그 성분을 가진 제품이 함께 붙는다', () async {
+  test('부족 성분은 성분 칩(최대 5개)으로 추천된다', () async {
     final c = make();
     await c.read(userProfileProvider.notifier).saveBstiType('OSPW');
 
     final suggestions = await c.read(shelfSuggestionsProvider.future);
     for (final s in suggestions) {
       expect(s.ingredientName, isNotEmpty);
-      // 추천할 제품이 없는 성분은 아예 넣지 않기로 했다.
-      expect(s.products, isNotEmpty);
+      // 제품 연결은 화면의 "제품 추천 받기"(추천 API top_products)가 담당한다.
     }
-    expect(suggestions.length, lessThanOrEqualTo(3));
+    expect(suggestions.length, lessThanOrEqualTo(5));
   });
 
-  test('이미 담은 제품은 다시 추천하지 않는다', () async {
+  test('기피로 담은 성분은 추천에서 빠진다', () async {
     final c = make();
     await c.read(userProfileProvider.notifier).saveBstiType('OSPW');
 
     final before = await c.read(shelfSuggestionsProvider.future);
     if (before.isEmpty) return; // 추천이 없으면 검증할 것도 없다
 
-    final first = before.first.products.first;
+    // 첫 추천 성분을 기피로 담는다 → 다시 계산하면 빠져야 한다.
+    final banned = before.first.ingredientName;
     c.read(shelfPreferenceProvider.notifier).add(ShelfEntry(
-          id: first.id,
-          name: first.name,
-          isProduct: true,
-          kind: PreferenceKind.like,
+          id: 999999,
+          name: banned,
+          isProduct: false,
+          kind: PreferenceKind.dislike,
         ));
 
     final after = await c.read(shelfSuggestionsProvider.future);
-    for (final s in after) {
-      expect(s.products.any((p) => p.id == first.id), isFalse,
-          reason: '이미 화장대에 있는 ${first.name}을 또 추천했다');
-    }
+    expect(after.any((s) => s.ingredientName == banned), isFalse,
+        reason: '기피로 지정한 $banned 이(가) 여전히 추천된다');
   });
 
   test('재검사하면 보고서가 다시 계산된다', () async {

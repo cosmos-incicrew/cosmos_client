@@ -40,6 +40,43 @@ abstract final class SourceDisplayPolicy {
       .trimRight();
 }
 
+/// 사용법·관리법(usage_guide) 한 문단을 소제목 구획으로 나누는 정책.
+///
+/// 서버가 관리법을 통짜 문단으로 주므로, 문장을 주제 키워드로 분류해
+/// 「세안법 / 바르는 순서 / 자외선 차단 / 생활 관리 / 사용 전 주의」로
+/// 나눠 보여준다. 문장은 잃지 않는다 — 분류 안 되면 「관리 팁」으로.
+abstract final class CareGuidePolicy {
+  static final _sections = <({String title, RegExp match})>[
+    (title: '세안법', match: RegExp(r'세안|클렌징|클렌저')),
+    (title: '바르는 순서', match: RegExp(r'토너|세럼|앰플|크림|바르|순서|보습제|유수분|펴')),
+    (title: '자외선 차단', match: RegExp(r'자외선|선크림|차단제')),
+    (title: '사용 전 주의', match: RegExp(r'테스트|주의|자극|민감|알레르기|전문의|상담')),
+    (title: '생활 관리', match: RegExp(r'사우나|생활|습관|수면|물을|온도')),
+  ];
+
+  static List<({String title, String body})> sections(String guide) {
+    final sentences = guide
+        .split(RegExp(r'(?<=[.!?])\s+(?=[가-힣A-Za-z0-9])'))
+        .map((s) => s.trim())
+        .where((s) => s.isNotEmpty);
+    final grouped = <String, List<String>>{};
+    for (final s in sentences) {
+      final section = _sections
+          .where((sec) => sec.match.hasMatch(s))
+          .map((sec) => sec.title)
+          .firstOrNull;
+      grouped.putIfAbsent(section ?? '관리 팁', () => []).add(s);
+    }
+    return [
+      for (final sec in _sections)
+        if (grouped[sec.title] != null)
+          (title: sec.title, body: grouped[sec.title]!.join(' ')),
+      if (grouped['관리 팁'] != null)
+        (title: '관리 팁', body: grouped['관리 팁']!.join(' ')),
+    ];
+  }
+}
+
 /// 해설 본문을 "역할 / 주의" 소제목 구획으로 나누는 정책.
 ///
 /// ① 성분 해설이 역할·효능과 주의 문장을 한 문단으로 섞어 보낸다 —
@@ -68,4 +105,16 @@ abstract final class InsightSectionPolicy {
       caution: caution.isEmpty ? null : caution.join(' '),
     );
   }
+}
+
+/// 성분 이름 표기 정책 — 사용자 화면에는 한글 성분명만.
+///
+/// 서버 근거(유사 케이스 등)에 INCI 영문명이 섞여 오는 경우가 있다 —
+/// 번역 대신 잘라낸다 (틀린 번역이 더 나쁘다).
+abstract final class IngredientNamePolicy {
+  static final _hangul = RegExp(r'[가-힣]');
+
+  /// 한글이 포함된 이름만 남긴다.
+  static List<String> koreanOnly(List<String> names) =>
+      [for (final n in names) if (_hangul.hasMatch(n)) n];
 }

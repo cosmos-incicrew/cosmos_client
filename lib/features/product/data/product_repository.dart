@@ -16,6 +16,23 @@ class ProductRepository {
 
   final Dio _dio;
 
+  /// 첫 호출 콜드스타트 대응 — 타임아웃·연결 실패·503 은 딱 1회 재시도.
+  ///
+  /// 서버 제품 검색은 내부 2초 제한이 있어, 한동안 안 쓰다 첫 검색이면
+  /// 503(일시 사용 불가)이 난다. 한 번 더 부르면 워밍업이 끝나 성공한다.
+  Future<T> _retryOnce<T>(Future<T> Function() run) async {
+    try {
+      return await run();
+    } on DioException catch (e) {
+      final transient = e.type == DioExceptionType.receiveTimeout ||
+          e.type == DioExceptionType.connectionTimeout ||
+          e.type == DioExceptionType.connectionError ||
+          e.response?.statusCode == 503;
+      if (!transient) rethrow;
+      return run();
+    }
+  }
+
   /// 제품 검색 — 제품명 부분일치.
   ///
   /// GET /api/v1/products/search?q={query}&limit=20
@@ -27,10 +44,10 @@ class ProductRepository {
   Future<List<Product>> search(String query) async {
     if (!Env.hasApi || query.isEmpty) return const [];
 
-    final res = await _dio.get<Map<String, dynamic>>(
-      '/api/v1/products/search',
-      queryParameters: {'q': query},
-    );
+    final res = await _retryOnce(() => _dio.get<Map<String, dynamic>>(
+          '/api/v1/products/search',
+          queryParameters: {'q': query},
+        ));
     final results = (res.data?['results'] as List?) ?? const [];
     return [
       for (final raw in results.cast<Map<String, dynamic>>())

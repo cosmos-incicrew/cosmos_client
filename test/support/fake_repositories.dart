@@ -154,6 +154,9 @@ class FakeIngredientRepository implements IngredientRepository {
   const FakeIngredientRepository();
 
   @override
+  Future<Ingredient?> findByExactName(String nameKo) async => null;
+
+  @override
   Future<List<Ingredient>> search(String query) async {
     if (query.isEmpty) return const [];
     final q = query.toLowerCase();
