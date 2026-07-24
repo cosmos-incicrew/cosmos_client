@@ -49,7 +49,12 @@ class AuthRepository {
       if (!Env.hasSupabase) {
         throw const AuthNotConfiguredException('Supabase 설정이 아직 없습니다.');
       }
-      await SupabaseService.auth.signInWithOAuth(sb.OAuthProvider.google);
+      // origin 으로 복귀시킨다 — 현재 URL(해시 라우팅의 #/onboarding 등)을 그대로
+      // 쓰면 복귀 후 온보딩 화면이 잠깐 노출됐다 프로필로 넘어가 깜빡인다.
+      await SupabaseService.auth.signInWithOAuth(
+        sb.OAuthProvider.google,
+        redirectTo: Uri.base.origin,
+      );
       return AuthState.unauthenticated; // 페이지가 리다이렉트되어 실제로는 복귀 안 함
     }
     if (!Env.hasGoogleSignIn) {
@@ -110,8 +115,9 @@ class AuthRepository {
       await SupabaseService.auth.signInWithOAuth(
         sb.OAuthProvider.kakao,
         // 네이티브는 딥링크로 앱에 돌아오지만, 웹은 그 스킴을 못 연다.
-        // null 로 두면 Supabase 가 현재 origin(localhost:3000·Vercel) 으로 돌려보낸다.
-        redirectTo: kIsWeb ? null : Env.authRedirectUrl,
+        // 웹은 origin 으로 복귀 — 현재 URL(#/onboarding)로 돌아오면 온보딩이
+        // 잠깐 노출됐다 프로필로 넘어가 깜빡인다. origin 은 그 fragment 를 뗀다.
+        redirectTo: kIsWeb ? Uri.base.origin : Env.authRedirectUrl,
         // 인앱 웹뷰 대신 외부 브라우저 — 카카오톡 앱 전환 로그인을 쓰려면 필요하다.
         authScreenLaunchMode: sb.LaunchMode.externalApplication,
         // Supabase 는 카카오에 account_email 을 기본으로 요구하는데, 이 항목은

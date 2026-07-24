@@ -53,7 +53,7 @@ class _SkinConcernScreenState extends ConsumerState<SkinConcernScreen> {
                 const Text('피부고민을 골라주세요',
                     style: AppTextStyles.headline),
                 const SizedBox(height: 8),
-                Text('여러 개 골라도 돼요. 추천에 반영됩니다.',
+                Text('최대 3개까지 고를 수 있어요. 추천에 반영됩니다.',
                     style: AppTextStyles.caption
                         .copyWith(color: AppColors.textSecondary)),
                 const SizedBox(height: 28),
@@ -79,24 +79,34 @@ class _SkinConcernScreenState extends ConsumerState<SkinConcernScreen> {
     );
   }
 
+  /// 한 번에 반영할 수 있는 고민 수 — 추천 질의가 흐려지지 않게 제한.
+  static const _maxConcerns = 3;
+
   Widget _chip(SkinConcern c) {
     final selected = _selected.contains(c);
+    // 3개가 찼으면 새 선택은 막는다 (이미 고른 것의 해제는 항상 가능).
+    final full = !selected && _selected.length >= _maxConcerns;
     return GestureDetector(
-      onTap: () => setState(() {
-        selected ? _selected.remove(c) : _selected.add(c);
-      }),
-      child: PixelBox(
-        borderColor: selected ? AppColors.primary : AppColors.outline,
-        fillColor: selected ? AppColors.primaryLight : AppColors.surface,
-        pixel: 5,
-        borderWidth: 2,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-        child: Text(
-          c.label,
-          style: AppTextStyles.body.copyWith(
-            color:
-                selected ? AppColors.primaryDark : AppColors.textPrimary,
-            fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
+      onTap: full
+          ? null
+          : () => setState(() {
+                selected ? _selected.remove(c) : _selected.add(c);
+              }),
+      child: Opacity(
+        opacity: full ? 0.35 : 1,
+        child: PixelBox(
+          borderColor: selected ? AppColors.primary : AppColors.outline,
+          fillColor: selected ? AppColors.primaryLight : AppColors.surface,
+          pixel: 5,
+          borderWidth: 2,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+          child: Text(
+            c.label,
+            style: AppTextStyles.body.copyWith(
+              color:
+                  selected ? AppColors.primaryDark : AppColors.textPrimary,
+              fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
+            ),
           ),
         ),
       ),

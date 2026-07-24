@@ -6,7 +6,7 @@
 /// 실행 예:
 ///   flutter run \
 ///     --dart-define=SUPABASE_URL=https://xxxx.supabase.co \
-///     --dart-define=SUPABASE_ANON_KEY=eyJhb....
+///     --dart-define=SUPABASE_PUBLISHABLE_KEY=sb_publishable_....
 class Env {
   const Env._();
 
@@ -15,9 +15,10 @@ class Env {
     defaultValue: '', // TODO: Supabase 프로젝트 URL
   );
 
-  static const String supabaseAnonKey = String.fromEnvironment(
-    'SUPABASE_ANON_KEY',
-    defaultValue: '', // TODO: Supabase anon key
+  /// 신규 publishable key를 우선하고 전환 기간에는 legacy anon key도 허용합니다.
+  static const String supabaseKey = String.fromEnvironment(
+    'SUPABASE_PUBLISHABLE_KEY',
+    defaultValue: String.fromEnvironment('SUPABASE_ANON_KEY'),
   );
 
   /// cosmos_server(FastAPI) 베이스 URL (Dio 용).
@@ -47,7 +48,7 @@ class Env {
 
   /// Supabase 설정이 채워졌는지 여부. 비어 있으면 초기화를 건너뜁니다.
   static bool get hasSupabase =>
-      supabaseUrl.isNotEmpty && supabaseAnonKey.isNotEmpty;
+      supabaseUrl.isNotEmpty && supabaseKey.isNotEmpty;
 
   /// API 주소가 채워졌는지 여부. 비어 있으면 저장소는 빈 결과를 돌려준다.
   static bool get hasApi => apiBaseUrl.isNotEmpty;
