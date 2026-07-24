@@ -38,6 +38,8 @@ dependencies:
 
   # 유틸
   cupertino_icons: ^1.0.6
+  # 웹 OAuth 리다이렉트(window.location)용 — 조건부 import 로 웹에서만 링크된다.
+  web: ^1.1.0
   intl: ^0.19.0
 
 dev_dependencies:
