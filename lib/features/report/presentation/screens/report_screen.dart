@@ -8,16 +8,19 @@ import '../../../../app/theme/app_assets.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../core/widgets/screen_title.dart';
 import '../../../../app/theme/app_text_styles.dart';
+import '../../../../core/policy/display_policy.dart';
 import '../../../../core/widgets/pixel_box.dart';
 import '../../../../core/widgets/section_label.dart';
 import '../../../bsti/bsti.dart';
 import '../../../my_shelf/data/shelf_preference.dart';
+import '../../../ingredient/data/ingredient_providers.dart';
 import '../../../my_shelf/presentation/widgets/ingredient_detail_sheet.dart';
 import '../../../onboarding/data/profile_store.dart';
 import '../../../onboarding/data/skin_concern.dart';
 import '../../../product/data/models/product.dart';
 import '../../data/recommendation.dart';
 import '../../data/recommendation_repository.dart';
+import '../../engine/dislike_filter.dart';
 import '../../engine/report_engine.dart';
 import '../../data/report_provider.dart';
 
@@ -257,86 +260,160 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
               onTap: () => context.push('/shelf/add'))
         else
           for (final m in report.matches) _MatchToggle(match: m),
-        // 부족한 성분 → 채워줄 제품 추천.
+        // 화장품을 더 담을수록 보고서가 정확해진다 — 추가 동선.
+        const SizedBox(height: 6),
+        GestureDetector(
+          onTap: () => context.push('/shelf/add'),
+          behavior: HitTestBehavior.opaque,
+          child: PixelBox(
+            borderColor: AppColors.outline,
+            pixel: 5,
+            borderWidth: 2,
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: Center(
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.add_circle_outline,
+                      size: 17, color: AppColors.textSecondary),
+                  const SizedBox(width: 6),
+                  Text('사용 화장품 추가하러 가기',
+                      style: AppTextStyles.body
+                          .copyWith(fontWeight: FontWeight.w700)),
+                ],
+              ),
+            ),
+          ),
+        ),
+        // 보충이 필요한 성분 — 칩 나열 + 제품 추천 받기 (기피 성분은 제외됨).
         if (suggestions.isNotEmpty) ...[
           const SizedBox(height: 32),
-          Text('이런 성분이 부족해요',
+          Text('보충이 필요한 성분',
               style: AppTextStyles.pointSm(color: AppColors.textPrimary)),
+          const SizedBox(height: 4),
+          Text('내 피부타입·피부고민 권장 성분 중 화장대에 없는 것 — 성분을 누르면 근거',
+              style: AppTextStyles.caption
+                  .copyWith(color: AppColors.textSecondary)),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final s in suggestions)
+                GestureDetector(
+                  onTap: () => _openIngredientPage(
+                      context, ref, s.ingredientName,
+                      fallback: s.bstiId == null
+                          ? null
+                          : () => _showBstiEvidence(context, s.bstiId!)),
+                  child: PixelBox(
+                    borderColor: AppColors.accent,
+                    pixel: 4,
+                    borderWidth: 2,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 10, vertical: 6),
+                    child: Text(s.ingredientName,
+                        style: AppTextStyles.caption.copyWith(
+                            color: AppColors.textPrimary,
+                            fontWeight: FontWeight.w700)),
+                  ),
+                ),
+            ],
+          ),
           const SizedBox(height: 12),
-          for (final s in suggestions) _suggestionCard(context, s),
+          GestureDetector(
+            onTap: () => _showRecoProducts(context, ref),
+            behavior: HitTestBehavior.opaque,
+            child: PixelBox(
+              borderColor: AppColors.primary,
+              fillColor: AppColors.primaryLight,
+              pixel: 5,
+              borderWidth: 2,
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: Center(
+                child: Text('제품 추천 받기',
+                    style: AppTextStyles.body.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.primaryDark)),
+              ),
+            ),
+          ),
         ],
       ],
     );
   }
 
-  /// "OO 성분이 부족합니다 — 이 제품을 추천해요" 카드 하나.
-  Widget _suggestionCard(BuildContext context, ShelfSuggestion s) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
-      child: PixelBox(
-        borderColor: AppColors.accent,
-        pixel: 5,
-        borderWidth: 2,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            GestureDetector(
-              // 성분명을 누르면 논문 근거가 뜬다.
-              onTap: s.bstiId == null
-                  ? null
-                  : () => _showBstiEvidence(context, s.bstiId!),
-              behavior: HitTestBehavior.opaque,
-              child: Row(
-                children: [
-                  Flexible(
-                    child: Text('${s.ingredientName} 성분이 부족합니다',
-                        style: AppTextStyles.body.copyWith(
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.primaryDark)),
-                  ),
-                  if (s.bstiId != null) ...[
-                    const SizedBox(width: 4),
-                    const Icon(Icons.help_outline,
-                        size: 15, color: AppColors.textSecondary),
-                  ],
-                ],
-              ),
-            ),
-            if (s.ingredientRole != null) ...[
+  /// 성분 이름 → 성분해설 상세페이지. 서버에서 이름 정확 일치로 찾아 이동한다.
+  ///
+  /// 찾지 못하면 [fallback] (기존 근거 시트 등)을 실행한다 — 아무 일도 안
+  /// 일어나는 탭은 만들지 않는다.
+  Future<void> _openIngredientPage(
+    BuildContext context,
+    WidgetRef ref,
+    String nameKo, {
+    VoidCallback? fallback,
+  }) async {
+    final ingredient =
+        await ref.read(ingredientRepositoryProvider).findByExactName(nameKo);
+    if (!context.mounted) return;
+    if (ingredient != null) {
+      context.push('/shelf/ingredient', extra: ingredient);
+    } else {
+      fallback?.call();
+    }
+  }
+
+  /// 기피로 담은 성분 이름들 — 추천 표시에서 제외 기준.
+  Set<String> _dislikedNames(WidgetRef ref) => {
+        for (final e in ref.read(shelfPreferenceProvider))
+          if (!e.isProduct && e.kind == PreferenceKind.dislike) e.name,
+      };
+
+  /// 제품 추천 받기 — 추천 API 의 성분 매칭 제품(top_products)을 시트로.
+  /// 기피 성분이 근거인 제품은 걸러진다.
+  void _showRecoProducts(BuildContext context, WidgetRef ref) {
+    final reco = ref.read(recommendationProvider).valueOrNull;
+    final products = DislikeFilter.products(
+        reco?.products ?? const [], _dislikedNames(ref));
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: AppColors.background,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('성분 매칭 제품 추천', style: AppTextStyles.title),
               const SizedBox(height: 4),
-              Text(s.ingredientRole!,
+              Text('내 프로필 추천 성분이 실제로 든 제품이에요',
                   style: AppTextStyles.caption
                       .copyWith(color: AppColors.textSecondary)),
-            ],
-            const SizedBox(height: 12),
-            Text('이 제품을 추천해요',
-                style: AppTextStyles.caption
-                    .copyWith(color: AppColors.textPrimary)),
-            const SizedBox(height: 8),
-            for (final p in s.products)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 6),
-                child: GestureDetector(
-                  onTap: () => context.push('/shelf/product', extra: p),
-                  behavior: HitTestBehavior.opaque,
-                  child: Row(
-                    children: [
-                      const Icon(Icons.add_circle_outline,
-                          size: 16, color: AppColors.accent),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Text('${p.name} (${p.brand ?? ''})',
-                            style: AppTextStyles.caption
-                                .copyWith(color: AppColors.textPrimary)),
-                      ),
-                      const Icon(Icons.chevron_right,
-                          size: 16, color: AppColors.textSecondary),
-                    ],
+              const SizedBox(height: 14),
+              if (products.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 20),
+                  child: Text('추천 제품을 준비 중이에요.\n잠시 후 보고서를 새로고침해 보세요.',
+                      style: AppTextStyles.body
+                          .copyWith(color: AppColors.textSecondary)),
+                )
+              else
+                Flexible(
+                  child: SingleChildScrollView(
+                    child: Column(
+                      children: [
+                        for (final p in products)
+                          _recoProductCard(ctx, p),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -806,11 +883,13 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
             child: Text(_stripEvidenceRefs(recommendation),
                 style: AppTextStyles.body.copyWith(height: 1.6)),
           ),
-        for (final ing in reco.ingredients)
+        for (final ing in DislikeFilter.ingredients(
+            reco.ingredients, _dislikedNames(ref)))
           Padding(
             padding: const EdgeInsets.only(bottom: 8),
             child: GestureDetector(
-              onTap: () => _showConcernEvidence(context, ing),
+              onTap: () => _openIngredientPage(context, ref, ing.nameKor,
+                  fallback: () => _showConcernEvidence(context, ing)),
               behavior: HitTestBehavior.opaque,
               child: PixelBox(
                 borderColor: AppColors.outline,
@@ -851,6 +930,17 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
               ),
             ),
           ),
+        // 종합 추천 제품 — 추천 성분이 실제로 든 제품 (top_products).
+        if (DislikeFilter.products(reco.products, _dislikedNames(ref))
+            .isNotEmpty) ...[
+          const SizedBox(height: 16),
+          Text('이 성분이 든 제품을 추천해요',
+              style: AppTextStyles.body.copyWith(fontWeight: FontWeight.w800)),
+          const SizedBox(height: 10),
+          for (final p in DislikeFilter.products(
+              reco.products, _dislikedNames(ref)))
+            _recoProductCard(context, p),
+        ],
         const SizedBox(height: 10),
         GestureDetector(
           onTap: () => context.push('/report/care'),
@@ -885,6 +975,56 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
                   .copyWith(color: AppColors.textSecondary, fontSize: 11)),
         ],
       ],
+    );
+  }
+
+  /// 종합 추천 제품 카드 — 매칭 성분 표시, 탭하면 제품 상세.
+  Widget _recoProductCard(BuildContext context, RecoProduct p) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: GestureDetector(
+        onTap: () => context.push('/shelf/product',
+            extra: Product(
+                id: p.productId, name: p.productName, brand: p.brand)),
+        behavior: HitTestBehavior.opaque,
+        child: PixelBox(
+          borderColor: AppColors.accent,
+          pixel: 5,
+          borderWidth: 2,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(p.productName,
+                        style: AppTextStyles.body
+                            .copyWith(fontWeight: FontWeight.w700)),
+                    const SizedBox(height: 2),
+                    Text(
+                        [
+                          if (p.brand != null) p.brand!,
+                          if (p.mainCategory != null) p.mainCategory!,
+                        ].join(' · '),
+                        style: AppTextStyles.caption
+                            .copyWith(color: AppColors.textSecondary)),
+                    if (p.matchedIngredients.isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Text('매칭 성분: ${p.matchedIngredients.join(', ')}',
+                          style: AppTextStyles.caption.copyWith(
+                              color: AppColors.primaryDark,
+                              fontWeight: FontWeight.w700)),
+                    ],
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right,
+                  size: 18, color: AppColors.textSecondary),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -1216,10 +1356,13 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
                 Text(c.answer!,
                     style: AppTextStyles.body.copyWith(height: 1.6)),
               ],
-              if (c.recommendedIngredients.isNotEmpty) ...[
+              if (IngredientNamePolicy.koreanOnly(c.recommendedIngredients)
+                  .isNotEmpty) ...[
                 const SizedBox(height: 10),
                 const SectionLabel('이 케이스의 추천 성분'),
-                Text(c.recommendedIngredients.join(', '),
+                Text(
+                    IngredientNamePolicy.koreanOnly(c.recommendedIngredients)
+                        .join(', '),
                     style: AppTextStyles.caption.copyWith(
                         color: AppColors.textPrimary, height: 1.5)),
               ],

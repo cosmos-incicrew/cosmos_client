@@ -123,6 +123,24 @@ class IngredientRepository {
     return ComparisonSummary.fromJson(res.data ?? const {});
   }
 
+  /// 이름(한글) 정확 일치로 성분 하나를 찾는다 — 성분 상세페이지 이동용.
+  ///
+  /// 추천·보충 성분에는 서버 성분 id 가 없어서(이름만 옴) 검색으로 잇는다.
+  /// 정확 일치가 없으면 결과가 1건일 때만 그것을 쓴다 (애매하면 null).
+  Future<Ingredient?> findByExactName(String nameKo) async {
+    if (!Env.hasApi || nameKo.isEmpty) return null;
+    final List<Ingredient> results;
+    try {
+      results = await search(nameKo);
+    } on Object {
+      return null;
+    }
+    for (final r in results) {
+      if (r.nameKor == nameKo) return r;
+    }
+    return results.length == 1 ? results.first : null;
+  }
+
   /// id 목록으로 성분 조회 — 제품 상세의 성분 목록. **입력 순서 유지.**
   ///
   /// POST /api/v1/ingredients/names  {"ingredient_ids": [101, 102]}

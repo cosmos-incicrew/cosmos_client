@@ -48,6 +48,8 @@ class ProductMatch {
 /// 화장대 종합 보고서.
 class ShelfReport {
   const ShelfReport({
+    this.concernLabels = const [],
+    this.cautionOverrides = 0,
     required this.typeCode,
     required this.matches,
     required this.totalScore,
@@ -75,6 +77,12 @@ class ShelfReport {
 
   /// 내 BSTI 유형 코드. 검사 전이면 null.
   final String? typeCode;
+
+  /// 점수에 함께 반영된 피부고민 라벨 (예: ['홍조', '미백']). 설명 문구용.
+  final List<String> concernLabels;
+
+  /// 권장·주의가 겹쳐 "주의 우선"으로 처리된 성분 수 — 설명 문구용.
+  final int cautionOverrides;
 
   /// 담은 제품별 평가.
   final List<ProductMatch> matches;
@@ -127,6 +135,18 @@ class ShelfReport {
       lines.add('판단 가능한 제품 $scored개 중 $good개가 $typeCode 유형에 잘 맞아요');
     }
 
+    // 피부고민 권장 성분도 매칭 기준에 합산됐음을 명시한다.
+    if (concernLabels.isNotEmpty) {
+      lines.add(
+          '피부고민(${concernLabels.join('·')}) 권장·기피 성분을 피부타입과 함께 매칭 기준에 반영했어요');
+    }
+
+    // 권장·주의가 겹친 성분은 안전 우선으로 주의로만 계산했음을 알린다.
+    if (cautionOverrides > 0) {
+      lines.add(
+          '권장과 주의가 겹친 성분 $cautionOverrides종은 안전을 우선해 주의로만 반영했어요');
+    }
+
     final poor = poorMatches;
     if (poor.isNotEmpty) {
       final names = poor.map((m) => m.name).take(2).join(', ');
@@ -174,6 +194,8 @@ class ReportEngine {
     required List<ShelfEntry> entries,
     required List<String> Function(int productId) ingredientIdsOf,
     Set<String> extraRecommendIds = const {},
+    Set<String> extraAvoidIds = const {},
+    List<String> concernLabels = const [],
   }) {
     final type = typeCode == null ? null : kBstiSkinTypes[typeCode];
     final products = entries.where((e) => e.isProduct).toList();
@@ -183,6 +205,7 @@ class ReportEngine {
     if (type == null && extraRecommendIds.isEmpty) {
       return ShelfReport(
         typeCode: typeCode,
+        concernLabels: concernLabels,
         matches: [
           for (final p in products)
             ProductMatch(
@@ -196,12 +219,20 @@ class ReportEngine {
       );
     }
 
-    final recommendIds = <String>{
+    // 주의 집합 = 유형 주의 + 고민별 기피 + 사용자 기피 지정 (extraAvoidIds).
+    final avoidIds = <String>{
+      ...?type?.avoid.map((e) => e.ingredientId),
+      ...extraAvoidIds,
+    };
+    // 권장 집합 — 단, 주의와 겹치는 성분은 **주의 우선**으로 권장에서 뺀다.
+    // (고민에 좋아도 내 유형·내 기피에 걸리면 권하지 않는다 — 안전 우선 원칙,
+    //  비교 엔진의 비대칭 가중치(-15 > +6)와 같은 철학)
+    final rawRecommend = <String>{
       ...?type?.recommend.map((e) => e.ingredientId),
       ...extraRecommendIds, // 피부고민 권장 성분 합산
     };
-    final avoidIds =
-        type?.avoid.map((e) => e.ingredientId).toSet() ?? const <String>{};
+    final recommendIds = rawRecommend.difference(avoidIds);
+    final cautionOverrides = rawRecommend.length - recommendIds.length;
 
     // 화장대 제품들이 통틀어 갖고 있는 성분 (부족분 계산용).
     final owned = <String>{};
@@ -243,6 +274,8 @@ class ReportEngine {
     ];
 
     return ShelfReport(
+      concernLabels: concernLabels,
+      cautionOverrides: cautionOverrides,
       typeCode: typeCode,
       matches: matches,
       totalScore: total,

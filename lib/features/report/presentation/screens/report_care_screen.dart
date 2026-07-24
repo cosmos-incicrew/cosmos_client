@@ -4,8 +4,10 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_text_styles.dart';
+import '../../../../core/policy/display_policy.dart';
 import '../../../../core/widgets/pixel_box.dart';
 import '../../../../core/widgets/screen_title.dart';
+import '../../../../core/widgets/section_label.dart';
 import '../../data/recommendation.dart';
 import '../../data/recommendation_repository.dart';
 
@@ -70,14 +72,26 @@ class ReportCareScreen extends ConsumerWidget {
               style: AppTextStyles.caption
                   .copyWith(color: AppColors.textSecondary)),
         const SizedBox(height: 14),
-        PixelBox(
-          borderColor: AppColors.primary,
-          fillColor: AppColors.primaryLight.withValues(alpha: 0.35),
-          pixel: 6,
-          borderWidth: 2.5,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-          child: Text(guide, style: AppTextStyles.body.copyWith(height: 1.7)),
-        ),
+        // 통짜 문단을 소제목 구획(세안법·바르는 순서·자외선…)으로 나눠 보여준다.
+        for (final sec in CareGuidePolicy.sections(guide)) ...[
+          PixelBox(
+            borderColor: AppColors.primary,
+            fillColor: AppColors.primaryLight.withValues(alpha: 0.35),
+            pixel: 6,
+            borderWidth: 2.5,
+            padding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SectionLabel(sec.title),
+                Text(sec.body,
+                    style: AppTextStyles.body.copyWith(height: 1.7)),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+        ],
         if (reco.disclaimer != null) ...[
           const SizedBox(height: 16),
           // 전문의 상담 권고 등 고정 고지 — 안전 문구라 눈에 띄게.

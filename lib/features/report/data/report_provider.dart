@@ -36,6 +36,17 @@ final shelfReportProvider = FutureProvider<ShelfReport>((ref) async {
   final concernIds = <String>{
     for (final c in profile.concerns) ...?kConcernIngredients[c],
   };
+  // 기피 축 — 고민별 기피 사전 + 사용자가 화장대에서 기피로 담은 성분.
+  // 사용자 기피는 이름 정확 일치로 BSTI id 에 잇는다 (애매한 매칭 금지).
+  final dislikedNames = {
+    for (final e in entries)
+      if (!e.isProduct && e.kind == PreferenceKind.dislike) e.name,
+  };
+  final avoidIds = <String>{
+    for (final c in profile.concerns) ...?kConcernAvoidIngredients[c],
+    for (final ing in kBstiIngredients.values)
+      if (dislikedNames.contains(ing.nameKo)) ing.id,
+  };
 
   var report = ReportEngine.build(
     typeCode: typeCode,
@@ -43,6 +54,8 @@ final shelfReportProvider = FutureProvider<ShelfReport>((ref) async {
     // 이미 받아둔 맵을 읽기만 하므로 여전히 동기 — 엔진 시그니처 그대로.
     ingredientIdsOf: (id) => byProduct[id] ?? const [],
     extraRecommendIds: concernIds,
+    extraAvoidIds: avoidIds,
+    concernLabels: [for (final c in profile.concerns) c.label],
   );
 
   // 제품 간 충돌 — 서버 비교 API 의 규제 정보로 계산한다.
@@ -99,40 +112,36 @@ class ShelfSuggestion {
   final List<Product> products;
 }
 
-/// 보고서 하단 "OO 성분이 부족합니다 → 이 제품을 추천해요".
+/// 보고서 하단 "보충이 필요한 성분" — 성분 칩 목록.
 ///
-/// 부족 성분(내 유형 권장인데 화장대에 없는 것) 중 위에서부터 최대 3개를 골라,
-/// 그 성분을 가진 제품을 붙인다. 이미 담은 제품은 제외한다.
-/// **추천할 제품이 없는 성분은 아예 넣지 않는다** — 행동할 수 없는 안내라서.
+/// 부족 성분(내 유형·고민 권장인데 화장대에 없는 것)을 최대 5개 보여준다.
+/// 성분→제품 역조회 API 가 없으므로 제품은 붙이지 않는다 — 실제 제품 연결은
+/// 화면의 "제품 추천 받기"가 추천 API 의 top_products 로 잇는다.
+/// **사용자가 기피로 담은 성분은 추천에서 제외한다.**
 final shelfSuggestionsProvider =
     FutureProvider<List<ShelfSuggestion>>((ref) async {
   final report = await ref.watch(shelfReportProvider.future);
   final entries = ref.watch(shelfPreferenceProvider);
-  final repo = ref.watch(productRepositoryProvider);
 
-  // 이미 담은 제품은 다시 추천하지 않는다.
-  final ownedProductIds =
-      entries.where((e) => e.isProduct).map((e) => e.id).toSet();
+  // 기피로 담은 성분 이름 — 이 성분은 부족해도 권하지 않는다.
+  final dislikedNames = {
+    for (final e in entries)
+      if (!e.isProduct && e.kind == PreferenceKind.dislike) e.name,
+  };
 
   final suggestions = <ShelfSuggestion>[];
   for (final bstiId in report.missingIngredientIds) {
     final info = kBstiIngredients[bstiId];
     if (info == null) continue;
-
-    final products = await repo.findByBstiIngredient(
-      bstiId,
-      exclude: ownedProductIds,
-      limit: 2, // 성분당 최대 2개
-    );
-    if (products.isEmpty) continue;
+    if (dislikedNames.contains(info.nameKo)) continue; // 기피 성분 제외
 
     suggestions.add(ShelfSuggestion(
       ingredientName: info.nameKo,
       ingredientRole: info.role,
-      products: products,
+      products: const [],
       bstiId: bstiId,
     ));
-    if (suggestions.length == 3) break; // 화면엔 최대 3개
+    if (suggestions.length == 5) break; // 화면엔 최대 5개
   }
   return suggestions;
 });

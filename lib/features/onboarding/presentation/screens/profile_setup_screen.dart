@@ -283,24 +283,36 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
     );
   }
 
-  /// 피부고민 칩 (다중 선택). 화면엔 한글 라벨만, 저장은 code 로.
+  /// 한 번에 반영 가능한 피부고민 수 — 추천 질의가 흐려지지 않게 제한.
+  static const _maxConcerns = 3;
+
+  /// 피부고민 칩 (최대 3개). 화면엔 한글 라벨만, 저장은 code 로.
   Widget _concernChip(SkinConcern c) {
     final selected = _concerns.contains(c);
+    // 3개가 찼으면 새 선택은 막는다 (해제는 항상 가능).
+    final full = !selected && _concerns.length >= _maxConcerns;
     return GestureDetector(
-      onTap: () => setState(() {
-        selected ? _concerns.remove(c) : _concerns.add(c);
-      }),
+      onTap: full
+          ? null
+          : () => setState(() {
+                selected ? _concerns.remove(c) : _concerns.add(c);
+              }),
       behavior: HitTestBehavior.opaque,
-      child: PixelBox(
-        borderColor: selected ? AppColors.primary : AppColors.outline,
-        fillColor: selected ? AppColors.primaryLight : AppColors.surface,
-        pixel: 4,
-        borderWidth: 2,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        child: Text(c.label,
-            style: AppTextStyles.caption.copyWith(
-                color: selected ? AppColors.primaryDark : AppColors.textPrimary,
-                fontWeight: selected ? FontWeight.w700 : FontWeight.w400)),
+      child: Opacity(
+        opacity: full ? 0.35 : 1,
+        child: PixelBox(
+          borderColor: selected ? AppColors.primary : AppColors.outline,
+          fillColor: selected ? AppColors.primaryLight : AppColors.surface,
+          pixel: 4,
+          borderWidth: 2,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Text(c.label,
+              style: AppTextStyles.caption.copyWith(
+                  color:
+                      selected ? AppColors.primaryDark : AppColors.textPrimary,
+                  fontWeight:
+                      selected ? FontWeight.w700 : FontWeight.w400)),
+        ),
       ),
     );
   }

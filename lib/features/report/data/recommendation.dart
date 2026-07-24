@@ -115,6 +115,8 @@ class RecoIngredient {
     this.reason,
     this.warnings = const [],
     this.sourceTitles = const [],
+    this.badges = const [],
+    this.owned = false,
   });
 
   final String nameKor;
@@ -135,6 +137,12 @@ class RecoIngredient {
   /// 구버전 응답의 근거 문서 제목들.
   final List<String> sourceTitles;
 
+  /// 기능성 고시 배지 (예: '미백').
+  final List<String> badges;
+
+  /// 이미 화장대에 보유한 성분인지.
+  final bool owned;
+
   factory RecoIngredient.fromJson(Map<String, dynamic> json) => RecoIngredient(
         nameKor: (json['name_kor'] ?? '') as String,
         inci: json['inci'] as String?,
@@ -151,6 +159,40 @@ class RecoIngredient {
             if ((s as Map<String, dynamic>)['title'] != null)
               s['title'] as String,
         ],
+        badges: ((json['badges'] as List?) ?? const []).cast<String>(),
+        owned: json['owned'] as bool? ?? false,
+      );
+}
+
+/// 종합 추천 제품 — 추천 성분이 실제로 든 제품 (명세 §top_products).
+class RecoProduct {
+  const RecoProduct({
+    required this.productId,
+    required this.productName,
+    this.brand,
+    this.productUrl,
+    this.mainCategory,
+    this.matchedIngredients = const [],
+  });
+
+  final int productId;
+  final String productName;
+  final String? brand;
+  final String? productUrl;
+  final String? mainCategory;
+
+  /// 이 제품이 추천된 이유가 된 성분 이름들.
+  final List<String> matchedIngredients;
+
+  factory RecoProduct.fromJson(Map<String, dynamic> json) => RecoProduct(
+        productId: json['product_id'] as int,
+        productName: (json['product_name'] ?? '') as String,
+        brand: json['brand'] as String?,
+        productUrl: json['product_url'] as String?,
+        mainCategory: json['main_category'] as String?,
+        matchedIngredients:
+            ((json['matched_ingredients'] as List?) ?? const [])
+                .cast<String>(),
       );
 }
 
@@ -180,6 +222,7 @@ class RecommendationResult {
     this.answer,
     this.cases = const [],
     this.ingredients = const [],
+    this.products = const [],
     this.advisory,
     this.profile,
     this.disclaimer,
@@ -189,6 +232,9 @@ class RecommendationResult {
   final RecoAnswer? answer;
   final List<RecoCase> cases;
   final List<RecoIngredient> ingredients;
+
+  /// 종합 추천 제품 (top_products).
+  final List<RecoProduct> products;
   final RecoAdvisory? advisory;
   final RecoProfile? profile;
   final String? disclaimer;
@@ -238,9 +284,16 @@ class RecommendationResult {
         for (final raw in (json['cases'] as List?) ?? const [])
           RecoCase.fromJson(raw as Map<String, dynamic>),
       ],
+      // 최종 명세는 top_ingredients — 이전 키(ingredients)도 함께 받는다.
       ingredients: [
-        for (final raw in (json['ingredients'] as List?) ?? const [])
+        for (final raw in (json['top_ingredients'] ??
+                json['ingredients'] ??
+                const []) as List)
           RecoIngredient.fromJson(raw as Map<String, dynamic>),
+      ],
+      products: [
+        for (final raw in (json['top_products'] as List?) ?? const [])
+          RecoProduct.fromJson(raw as Map<String, dynamic>),
       ],
       advisory: json['advisory'] == null
           ? null
