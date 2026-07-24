@@ -18,7 +18,9 @@ class CosmosApp extends ConsumerWidget {
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,
-      themeMode: ThemeMode.system,
+      // 앱 디자인이 밝은 픽셀 테마 기준이라, 시스템(OS) 다크모드를 따라가면
+      // 배경이 어둡게 떠서 깨진다. 시스템 무관하게 항상 라이트로 고정한다.
+      themeMode: ThemeMode.light,
       routerConfig: router,
       // 데스크톱/웹에서 폰 화면 비율로 보이게 감싼다. (실제 모바일에선 그대로)
       builder: (context, child) =>

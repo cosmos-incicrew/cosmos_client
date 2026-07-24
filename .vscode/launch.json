@@ -1,0 +1,29 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "cosmos_client (Chrome :3000)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "deviceId": "chrome",
+      "args": [
+        "--web-port=3000",
+        "--dart-define-from-file=dart_defines/dev.json",
+        "--dart-define=API_BASE_URL=http://localhost:8000"
+      ]
+    },
+    {
+      "name": "cosmos_client (web-server :3000)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "deviceId": "web-server",
+      "args": [
+        "--web-port=3000",
+        "--dart-define-from-file=dart_defines/dev.json",
+        "--dart-define=API_BASE_URL=http://localhost:8000"
+      ]
+    }
+  ]
+}

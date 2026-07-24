@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 
@@ -41,6 +42,21 @@ class AuthRepository {
   /// 웹 OAuth 가 아니라 네이티브인 이유: 구글이 인앱 웹뷰 로그인을 막아서,
   /// 안드로이드에서는 네이티브 흐름이 더 짧고 안정적이다.
   Future<AuthState> signInWithGoogle() async {
+    // 웹은 google_sign_in 의 네이티브 흐름(authenticate)을 지원하지 않는다.
+    // 카카오처럼 Supabase 웹 OAuth 로 리다이렉트한다 — 페이지가 통째로 떠났다
+    // 현재 origin 으로 돌아오고, 세션은 복귀 후 restoreSession 이 잡는다.
+    if (kIsWeb) {
+      if (!Env.hasSupabase) {
+        throw const AuthNotConfiguredException('Supabase 설정이 아직 없습니다.');
+      }
+      // origin 으로 복귀시킨다 — 현재 URL(해시 라우팅의 #/onboarding 등)을 그대로
+      // 쓰면 복귀 후 온보딩 화면이 잠깐 노출됐다 프로필로 넘어가 깜빡인다.
+      await SupabaseService.auth.signInWithOAuth(
+        sb.OAuthProvider.google,
+        redirectTo: Uri.base.origin,
+      );
+      return AuthState.unauthenticated; // 페이지가 리다이렉트되어 실제로는 복귀 안 함
+    }
     if (!Env.hasGoogleSignIn) {
       throw const AuthNotConfiguredException('구글 로그인 설정이 아직 없습니다.');
     }
@@ -98,7 +114,10 @@ class AuthRepository {
     try {
       await SupabaseService.auth.signInWithOAuth(
         sb.OAuthProvider.kakao,
-        redirectTo: Env.authRedirectUrl,
+        // 네이티브는 딥링크로 앱에 돌아오지만, 웹은 그 스킴을 못 연다.
+        // 웹은 origin 으로 복귀 — 현재 URL(#/onboarding)로 돌아오면 온보딩이
+        // 잠깐 노출됐다 프로필로 넘어가 깜빡인다. origin 은 그 fragment 를 뗀다.
+        redirectTo: kIsWeb ? Uri.base.origin : Env.authRedirectUrl,
         // 인앱 웹뷰 대신 외부 브라우저 — 카카오톡 앱 전환 로그인을 쓰려면 필요하다.
         authScreenLaunchMode: sb.LaunchMode.externalApplication,
         // Supabase 는 카카오에 account_email 을 기본으로 요구하는데, 이 항목은

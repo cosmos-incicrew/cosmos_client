@@ -14,13 +14,13 @@ class SupabaseService {
   static Future<void> init() async {
     if (!Env.hasSupabase) {
       // ignore: avoid_print
-      print('[SupabaseService] SUPABASE_URL/ANON_KEY 미설정 — 초기화 스킵');
+      print('[SupabaseService] SUPABASE_URL/PUBLISHABLE_KEY 미설정 — 초기화 스킵');
       return;
     }
     await Supabase.initialize(
       url: Env.supabaseUrl,
       // ignore: deprecated_member_use
-      anonKey: Env.supabaseAnonKey,
+      anonKey: Env.supabaseKey,
     );
   }
 
