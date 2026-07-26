@@ -36,10 +36,12 @@ class RecommendationResult {
   final RecommendationBasis basis;
 }
 
-/// 맞춤 추천 — 내 피부유형 + 피부고민 + 기피성분을 반영한다.
+/// 1단계(빠름) — 제품 풀: 씨앗 검색만으로 카테고리 그룹을 만든다 (1~2초).
 ///
-/// 점수를 지어내지 않는다. "내가 찾는 성분과 몇 개나 겹치는가"로만 정렬한다.
-final recommendationProvider =
+/// 매칭 정렬(2단계)이 끝나기 전에도 화면이 카테고리를 먼저 띄울 수 있도록
+/// 단계를 분리했다 — 시연·체감 속도용. 전체 제품 목록 API 가 서버에 없어서
+/// (listAll 은 스텁 — TODO(BE): GET /products) 씨앗 검색으로 실데이터를 채운다.
+final recommendationPoolProvider =
     FutureProvider<RecommendationResult>((ref) async {
   final typeCode = ref.watch(bstiResultProvider);
   final profile = ref.watch(userProfileProvider);
@@ -61,55 +63,78 @@ final recommendationProvider =
     avoidCount: avoidIngredientIds.length,
   );
 
-  final products = await ref.watch(productRepositoryProvider).listAll();
-  if (products.isEmpty) {
-    return RecommendationResult(byCategory: const {}, basis: basis);
+  const seeds = ['크림', '토너', '세럼', '로션', '에센스', '선크림', '클렌징', '마스크팩'];
+  final repo = ref.watch(productRepositoryProvider);
+  final seedResults = await Future.wait([
+    for (final seed in seeds) repo.search(seed),
+  ]);
+  final byId = <int, Product>{};
+  for (final list in seedResults) {
+    for (final p in list.take(6)) {
+      byId.putIfAbsent(p.id, () => p);
+    }
   }
+
+  final map = <String, List<Product>>{};
+  for (final p in byId.values) {
+    final category = p.subCategory;
+    if (category == null) continue;
+    if (avoidProductIds.contains(p.id)) continue;
+    if (p.ingredientIds.any(avoidIngredientIds.contains)) continue;
+    map.putIfAbsent(category, () => []).add(p);
+  }
+  return RecommendationResult(byCategory: map, basis: basis);
+});
+
+/// 2단계(느림) — 매칭 hit: 제품 id → 내가 찾는 성분과 겹치는 수.
+///
+/// 제품별 성분 조회가 많아 수 초 걸린다. 화면은 이게 끝나기 전엔 씨앗 순서로
+/// 보여주다가, 도착하면 정렬만 갱신한다. 세션 캐시 — 재진입 시 재계산 없음.
+final recommendationHitsProvider = FutureProvider<Map<int, int>>((ref) async {
+  final pool = await ref.watch(recommendationPoolProvider.future);
+  final typeCode = ref.watch(bstiResultProvider);
+  final profile = ref.watch(userProfileProvider);
 
   // 내가 찾는 BSTI 성분 = 내 유형 권장 + 내 고민에 맞는 성분.
   final wanted = <String>{
     ...?kBstiSkinTypes[typeCode]?.recommend.map((e) => e.ingredientId),
     for (final c in profile.concerns) ...?kConcernIngredients[c],
   };
+  if (wanted.isEmpty) return const {};
 
-  // 제품들이 쓰는 성분을 한 번에 받아 id→BSTI id 맵을 만든다.
-  // (예전에는 정렬 비교자 안에서 성분을 매번 선형 탐색해 O(n²)였다)
-  final bstiByProduct = await ref
-      .watch(ingredientRepositoryProvider)
-      .bstiIdsByProducts(products.map((p) => p.id).toList());
-
-  // 기피 제품·성분을 걸러 카테고리별로 묶는다.
-  final map = <String, List<_Scored>>{};
-  for (final p in products) {
-    final category = p.subCategory;
-    if (category == null) continue;
-    if (avoidProductIds.contains(p.id)) continue;
-    if (p.ingredientIds.any(avoidIngredientIds.contains)) continue;
-
-    // hit 수를 제품당 한 번만 계산한다 (정렬 중 재계산 없음).
-    final hits = wanted.isEmpty
-        ? 0
-        : (bstiByProduct[p.id] ?? const [])
-            .where(wanted.contains)
-            .length;
-    map.putIfAbsent(category, () => []).add(_Scored(p, hits));
-  }
-
-  // 맞는 성분이 많은 제품부터. (동점이면 원래 순서 유지 — 안정 정렬)
-  final byCategory = <String, List<Product>>{};
-  for (final entry in map.entries) {
-    final list = entry.value;
-    if (wanted.isNotEmpty) {
-      list.sort((a, b) => b.hits.compareTo(a.hits));
-    }
-    byCategory[entry.key] = [for (final s in list) s.product];
-  }
-  return RecommendationResult(byCategory: byCategory, basis: basis);
+  final ids = [
+    for (final list in pool.byCategory.values)
+      for (final p in list) p.id,
+  ];
+  final bstiByProduct =
+      await ref.watch(ingredientRepositoryProvider).bstiIdsByProducts(ids);
+  return {
+    for (final id in ids)
+      id: (bstiByProduct[id] ?? const []).where(wanted.contains).length,
+  };
 });
 
-/// 정렬용 (제품, 겹치는 성분 수) 쌍.
-class _Scored {
-  const _Scored(this.product, this.hits);
-  final Product product;
-  final int hits;
+/// hit 수 기준으로 카테고리 안을 정렬한 사본. (동점이면 원래 순서 유지)
+RecommendationResult sortRecommendationByHits(
+  RecommendationResult pool,
+  Map<int, int> hits,
+) {
+  if (hits.isEmpty) return pool;
+  final byCategory = <String, List<Product>>{};
+  for (final entry in pool.byCategory.entries) {
+    final list = [...entry.value];
+    list.sort((a, b) => (hits[b.id] ?? 0).compareTo(hits[a.id] ?? 0));
+    byCategory[entry.key] = list;
+  }
+  return RecommendationResult(byCategory: byCategory, basis: pool.basis);
 }
+
+/// 맞춤 추천 최종본 — 내 피부유형 + 피부고민 + 기피성분을 반영해 정렬 완료.
+///
+/// 점수를 지어내지 않는다. "내가 찾는 성분과 몇 개나 겹치는가"로만 정렬한다.
+final recommendationProvider =
+    FutureProvider<RecommendationResult>((ref) async {
+  final pool = await ref.watch(recommendationPoolProvider.future);
+  final hits = await ref.watch(recommendationHitsProvider.future);
+  return sortRecommendationByHits(pool, hits);
+});

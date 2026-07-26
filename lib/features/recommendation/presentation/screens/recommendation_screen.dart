@@ -30,21 +30,29 @@ class RecommendationScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final async = ref.watch(recommendationProvider);
+    // 1단계(제품 풀)만 기다려 화면을 먼저 띄운다 (1~2초).
+    // 2단계(매칭 정렬)는 뒤에서 오면 정렬만 갱신 — 시연 때 로딩에 안 갇힌다.
+    final poolAsync = ref.watch(recommendationPoolProvider);
 
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
-        child: async.when(
+        child: poolAsync.when(
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (_, __) => _message('추천을 불러오지 못했어요'),
-          data: (result) => _body(context, result),
+          data: (pool) => _body(context, ref, pool),
         ),
       ),
     );
   }
 
-  Widget _body(BuildContext context, RecommendationResult result) {
+  Widget _body(BuildContext context, WidgetRef ref, RecommendationResult pool) {
+    // 매칭 hit 이 도착했으면 정렬 적용, 아직이면 씨앗 순서 그대로.
+    final hitsAsync = ref.watch(recommendationHitsProvider);
+    final hits = hitsAsync.valueOrNull;
+    final result =
+        hits == null ? pool : sortRecommendationByHits(pool, hits);
+    final sorting = hitsAsync.isLoading;
     final grouped = result.byCategory;
 
     return ListView(
@@ -57,13 +65,37 @@ class RecommendationScreen extends ConsumerWidget {
         ),
         const SizedBox(height: 8),
         _header(result.basis),
-        const SizedBox(height: 24),
+        if (sorting) ...[
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              const SizedBox(
+                  width: 12,
+                  height: 12,
+                  child: CircularProgressIndicator(strokeWidth: 2)),
+              const SizedBox(width: 8),
+              Text('내 피부에 맞춰 정렬하는 중…',
+                  style: AppTextStyles.caption
+                      .copyWith(color: AppColors.textSecondary)),
+            ],
+          ),
+        ],
+        const SizedBox(height: 20),
         if (grouped.isEmpty)
           _message('추천할 제품을 찾지 못했어요')
-        else
-          for (final category in _categoryOrder)
-            if (grouped[category] != null && grouped[category]!.isNotEmpty)
-              _categorySection(context, category, grouped[category]!),
+        else ...[
+          // 정해둔 순서 먼저, 나머지 카테고리는 그 뒤에.
+          for (final category in [
+            ..._categoryOrder.where((c) =>
+                grouped[c] != null && grouped[c]!.isNotEmpty),
+            ...grouped.keys.where((c) => !_categoryOrder.contains(c)),
+          ])
+            _CategoryToggle(
+              category: category,
+              items: grouped[category]!,
+              hits: hits ?? const {},
+            ),
+        ],
       ],
     );
   }
@@ -115,32 +147,72 @@ class RecommendationScreen extends ConsumerWidget {
     );
   }
 
-  /// 한 카테고리 (예: 크림) + 그 안의 제품들.
-  Widget _categorySection(
-      BuildContext context, String category, List<Product> items) {
+
+}
+
+/// 카테고리 토글 — 기본 접힘. 펼치면 그 카테고리의 추천 제품이 나온다.
+class _CategoryToggle extends StatefulWidget {
+  const _CategoryToggle({
+    required this.category,
+    required this.items,
+    required this.hits,
+  });
+
+  final String category;
+  final List<Product> items;
+
+  /// 제품 id → 내 성분과 겹치는 수 (배지 표시용, 비어있으면 미표시).
+  final Map<int, int> hits;
+
+  @override
+  State<_CategoryToggle> createState() => _CategoryToggleState();
+}
+
+class _CategoryToggleState extends State<_CategoryToggle> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 28),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Text(category,
-                  style: AppTextStyles.pointSm(color: AppColors.textPrimary)),
-              const SizedBox(width: 8),
-              Text('${items.length}개',
-                  style: AppTextStyles.caption
-                      .copyWith(color: AppColors.textSecondary)),
+      padding: const EdgeInsets.only(bottom: 12),
+      child: PixelBox(
+        borderColor: AppColors.outline,
+        pixel: 5,
+        borderWidth: 2,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            GestureDetector(
+              onTap: () => setState(() => _expanded = !_expanded),
+              behavior: HitTestBehavior.opaque,
+              child: Row(
+                children: [
+                  Text(widget.category,
+                      style: AppTextStyles.pointSm(
+                          color: AppColors.textPrimary)),
+                  const SizedBox(width: 8),
+                  Text('${widget.items.length}개',
+                      style: AppTextStyles.caption
+                          .copyWith(color: AppColors.textSecondary)),
+                  const Spacer(),
+                  Icon(_expanded ? Icons.expand_less : Icons.expand_more,
+                      size: 22, color: AppColors.textSecondary),
+                ],
+              ),
+            ),
+            if (_expanded) ...[
+              const SizedBox(height: 12),
+              for (final p in widget.items) _card(context, p),
             ],
-          ),
-          const SizedBox(height: 12),
-          for (final p in items) _productCard(context, p),
-        ],
+          ],
+        ),
       ),
     );
   }
 
-  Widget _productCard(BuildContext context, Product p) {
+  Widget _card(BuildContext context, Product p) {
+    final hit = widget.hits[p.id] ?? 0;
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: GestureDetector(
@@ -148,9 +220,9 @@ class RecommendationScreen extends ConsumerWidget {
         behavior: HitTestBehavior.opaque,
         child: PixelBox(
           borderColor: AppColors.outline,
-          pixel: 5,
+          pixel: 4,
           borderWidth: 2,
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           child: Row(
             children: [
               Expanded(
@@ -164,9 +236,20 @@ class RecommendationScreen extends ConsumerWidget {
                     Text(p.brand ?? '',
                         style: AppTextStyles.caption
                             .copyWith(color: AppColors.textSecondary)),
-                    if (p.subCategory != null) ...[
+                    if (hit > 0) ...[
                       const SizedBox(height: 6),
-                      _ingredientChip(p.subCategory!),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: AppColors.primaryLight,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text('맞춤 성분 $hit개',
+                            style: AppTextStyles.caption.copyWith(
+                                color: AppColors.primaryDark,
+                                fontSize: 11)),
+                      ),
                     ],
                   ],
                 ),
@@ -180,16 +263,4 @@ class RecommendationScreen extends ConsumerWidget {
       ),
     );
   }
-
-  Widget _ingredientChip(String name) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-        decoration: BoxDecoration(
-          color: AppColors.primaryLight,
-          borderRadius: BorderRadius.circular(6),
-        ),
-        child: Text(name,
-            style: AppTextStyles.caption
-                .copyWith(color: AppColors.primaryDark, fontSize: 11)),
-      );
-
 }

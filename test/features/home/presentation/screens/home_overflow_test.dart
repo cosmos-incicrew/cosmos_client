@@ -4,6 +4,7 @@
 import 'package:cosmos_app/app/theme/app_theme.dart';
 import 'package:cosmos_app/features/home/presentation/screens/home_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
@@ -20,7 +21,10 @@ void main() {
         GoRoute(path: '/profile', builder: (_, __) => const SizedBox()),
       ],
     );
-    return MaterialApp.router(theme: AppTheme.light, routerConfig: router);
+    // HomeScreen 이 추천 프리로딩을 위해 리버팟을 쓰므로 스코프가 필요하다.
+    return ProviderScope(
+        child:
+            MaterialApp.router(theme: AppTheme.light, routerConfig: router));
   }
 
   testWidgets('홈이 폰 크기(390x844)에서 오버플로우 없이 렌더된다', (tester) async {
