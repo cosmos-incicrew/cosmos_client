@@ -134,18 +134,37 @@ class IngredientRepository {
   ///
   /// 추천·보충 성분에는 서버 성분 id 가 없어서(이름만 옴) 검색으로 잇는다.
   /// 정확 일치가 없으면 결과가 1건일 때만 그것을 쓴다 (애매하면 null).
-  Future<Ingredient?> findByExactName(String nameKo) async {
+  /// [englishName] 이 있으면 한글명 해석 실패 시 영문(INCI)으로 한 번 더
+  /// 시도한다 — "황"처럼 한 글자라 검색이 막히는 성분용 (서버가 2글자
+  /// 미만을 422 로 거부한다).
+  Future<Ingredient?> findByExactName(
+    String nameKo, {
+    String? englishName,
+  }) async {
     if (!Env.hasApi || nameKo.isEmpty) return null;
-    final List<Ingredient> results;
     try {
-      results = await search(nameKo);
+      final results = await search(nameKo);
+      for (final r in results) {
+        if (r.nameKor == nameKo) return r;
+      }
+      if (results.length == 1) return results.first;
+    } on Object {
+      // 한글명 검색 실패 — 영문 보조 시도로 넘어간다.
+    }
+    final en = englishName?.trim();
+    if (en == null || en.length < 2) return null;
+    try {
+      final results = await search(en);
+      for (final r in results) {
+        if (r.nameKor == nameKo ||
+            r.nameEng.toLowerCase() == en.toLowerCase()) {
+          return r;
+        }
+      }
     } on Object {
       return null;
     }
-    for (final r in results) {
-      if (r.nameKor == nameKo) return r;
-    }
-    return results.length == 1 ? results.first : null;
+    return null;
   }
 
   /// id 목록으로 성분 조회 — 제품 상세의 성분 목록. **입력 순서 유지.**

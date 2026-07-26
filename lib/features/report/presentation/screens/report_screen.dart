@@ -17,7 +17,7 @@ import '../../../../core/widgets/native_gif/native_gif_stub.dart'
     if (dart.library.html) '../../../../core/widgets/native_gif/native_gif_web.dart';
 import '../../../my_shelf/data/shelf_preference.dart';
 import '../../../ingredient/data/ingredient_providers.dart';
-import '../../../my_shelf/presentation/widgets/ingredient_detail_sheet.dart';
+import '../../../ingredient/data/models/ingredient.dart';
 import '../../../onboarding/data/profile_store.dart';
 import '../../../onboarding/data/skin_concern.dart';
 import '../../../product/data/models/product.dart';
@@ -304,6 +304,9 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
                 GestureDetector(
                   onTap: () => _openIngredientPage(
                       context, ref, s.ingredientName,
+                      inci: s.bstiId == null
+                          ? null
+                          : kBstiIngredients[s.bstiId!]?.inci,
                       fallback: s.bstiId == null
                           ? null
                           : () => _showBstiEvidence(context, s.bstiId!)),
@@ -352,10 +355,12 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
     BuildContext context,
     WidgetRef ref,
     String nameKo, {
+    String? inci,
     VoidCallback? fallback,
   }) async {
-    final ingredient =
-        await ref.read(ingredientRepositoryProvider).findByExactName(nameKo);
+    final ingredient = await ref
+        .read(ingredientRepositoryProvider)
+        .findByExactName(nameKo, englishName: inci);
     if (!context.mounted) return;
     if (ingredient != null) {
       context.push('/shelf/ingredient', extra: ingredient);
@@ -1157,6 +1162,7 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
                   GestureDetector(
                     onTap: () => _openIngredientPage(
                         context, ref, kBstiIngredients[id]!.nameKo,
+                        inci: kBstiIngredients[id]!.inci,
                         fallback: () => _showBstiEvidence(context, id)),
                     child: Container(
                       padding: const EdgeInsets.symmetric(
@@ -1439,12 +1445,12 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
             Padding(
               padding: const EdgeInsets.only(bottom: 6),
               child: GestureDetector(
-                onTap: () => _openIngredientPage(context, ref, c.nameKr,
-                    fallback: () => IngredientDetailSheet.show(
-                          context,
-                          ingredientId: c.serverIngredientId,
-                          fallbackName: c.nameKr,
-                        )),
+                // 서버 성분 id 를 이미 알고 있으니 검색 없이 바로 상세로.
+                onTap: () => context.push('/shelf/ingredient',
+                    extra: Ingredient(
+                        id: c.serverIngredientId,
+                        nameKor: c.nameKr,
+                        nameEng: '')),
                 behavior: HitTestBehavior.opaque,
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1596,7 +1602,8 @@ class _MatchToggleState extends ConsumerState<_MatchToggle> {
                       onTap: () async {
                         final ing = await ref
                             .read(ingredientRepositoryProvider)
-                            .findByExactName(kBstiIngredients[id]!.nameKo);
+                            .findByExactName(kBstiIngredients[id]!.nameKo,
+                                englishName: kBstiIngredients[id]!.inci);
                         if (!context.mounted) return;
                         if (ing != null) {
                           context.push('/shelf/ingredient', extra: ing);

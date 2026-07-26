@@ -14,7 +14,7 @@ import '../../../ingredient/data/models/ingredient.dart';
 import '../../../product/data/models/product.dart';
 import '../../../ingredient/data/ingredient_providers.dart';
 import '../../../ingredient/data/models/ingredient_insight.dart';
-import '../../../product/data/product_providers.dart';
+import '../../data/ingredient_products_provider.dart';
 import '../../../../core/widgets/screen_title.dart';
 
 /// 성분 상세 화면 (검색 결과에서 성분 진입).
@@ -29,8 +29,9 @@ class IngredientDetailScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     // 이 성분을 포함하는 제품 (이 목록만 비동기 — 나머지는 바로 그린다).
+    // 역조회 API 부재 — 추천 풀 + 내 화장대에서 프론트 도출 (기존 API 조합).
     final productsAsync =
-        ref.watch(productsByIngredientProvider(ingredient.id));
+        ref.watch(ingredientProductsProvider(ingredient.id));
     // 이 성분을 권장 성분으로 가진 BSTI 유형을 실제 데이터로 매칭.
     final type = ingredient.bstiIngredientId == null
         ? null
@@ -56,7 +57,9 @@ class IngredientDetailScreen extends ConsumerWidget {
           // 긴 성분명(영문 병기)이 화면을 넘지 않게 줄바꿈 허용.
           Text(
             ingredient.nameKor != null
-                ? '${ingredient.nameKor} (${ingredient.nameEng})'
+                ? (ingredient.nameEng.isEmpty
+                    ? ingredient.nameKor!
+                    : '${ingredient.nameKor} (${ingredient.nameEng})')
                 : ingredient.nameEng,
             style: AppTextStyles.title.copyWith(fontSize: 22, height: 1.3),
           ),
@@ -120,8 +123,7 @@ class IngredientDetailScreen extends ConsumerWidget {
             ],
             data: (products) => products.isEmpty
                 ? [
-                    // TODO(BE): 성분→제품 역조회 API 가 아직 없어 항상 빈 결과다.
-                    Text('성분으로 제품을 찾는 기능은 준비 중이에요.',
+                    Text('이 성분이 든 제품을 아직 찾지 못했어요.',
                         style: AppTextStyles.caption
                             .copyWith(color: AppColors.textSecondary)),
                   ]
