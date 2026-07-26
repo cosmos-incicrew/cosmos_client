@@ -13,6 +13,8 @@ import '../../../../core/widgets/dots_loading.dart';
 import '../../../../core/widgets/pixel_box.dart';
 import '../../../../core/widgets/section_label.dart';
 import '../../../bsti/bsti.dart';
+import '../../../../core/widgets/native_gif/native_gif_stub.dart'
+    if (dart.library.html) '../../../../core/widgets/native_gif/native_gif_web.dart';
 import '../../../my_shelf/data/shelf_preference.dart';
 import '../../../ingredient/data/ingredient_providers.dart';
 import '../../../my_shelf/presentation/widgets/ingredient_detail_sheet.dart';
@@ -158,13 +160,11 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Image.asset(
-            AppAssets.reportLoading,
+          // 웹은 네이티브 <img> 로 그린다 — Flutter 웹 렌더러의 GIF 멈춤 회피.
+          const NativeGif(
+            assetPath: AppAssets.reportLoading,
             width: 220,
             height: 220,
-            fit: BoxFit.contain,
-            errorBuilder: (_, __, ___) =>
-                const CircularProgressIndicator(),
           ),
           const SizedBox(height: 14),
           Text('내 화장대 보고서를 만들고 있어요…',
@@ -250,7 +250,7 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
         _scoreCard(report),
         if (report.conflicts.isNotEmpty) ...[
           const SizedBox(height: 14),
-          _conflictSection(context, report),
+          _conflictSection(context, ref, report),
         ],
         const SizedBox(height: 28),
         Text('지금 쓰는 화장품',
@@ -878,8 +878,33 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
         if (recommendation != null)
           Padding(
             padding: const EdgeInsets.only(bottom: 10),
-            child: Text(_stripEvidenceRefs(recommendation),
-                style: AppTextStyles.body.copyWith(height: 1.6)),
+            // 줄글이 읽기 어렵다 — 문장 단위 개조식으로 나눠 보여준다.
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (final line in _stripEvidenceRefs(recommendation)
+                    .split(RegExp(r'(?<=[.!?])\s+(?=[가-힣A-Za-z0-9])'))
+                    .map((t) => t.trim())
+                    .where((t) => t.isNotEmpty))
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('·  ',
+                            style: AppTextStyles.body.copyWith(
+                                color: AppColors.primaryDark,
+                                fontWeight: FontWeight.w800)),
+                        Expanded(
+                          child: Text(line,
+                              style: AppTextStyles.body
+                                  .copyWith(height: 1.5)),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
           ),
         for (final ing in DislikeFilter.ingredients(
             reco.ingredients, _dislikedNames(ref)))
@@ -1106,6 +1131,7 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
   /// BSTI 사전 성분 칩 줄 — 칩 탭 → 역할 + 논문 근거 시트.
   Widget _bstiChipRow(
       BuildContext context, String label, Color color, List<String> ids) {
+    final ref = this.ref;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1129,7 +1155,9 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
               for (final id in ids)
                 if (kBstiIngredients[id] != null)
                   GestureDetector(
-                    onTap: () => _showBstiEvidence(context, id),
+                    onTap: () => _openIngredientPage(
+                        context, ref, kBstiIngredients[id]!.nameKo,
+                        fallback: () => _showBstiEvidence(context, id)),
                     child: Container(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 8, vertical: 4),
@@ -1380,7 +1408,8 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
 
   /// 제품끼리 겹치는 규제 성분 — 같이 쓰면 과할 수 있는 조합.
   /// 성분을 누르면 해설(①)이 뜬다.
-  Widget _conflictSection(BuildContext context, ShelfReport report) {
+  Widget _conflictSection(
+      BuildContext context, WidgetRef ref, ShelfReport report) {
     return PixelBox(
       borderColor: AppColors.danger,
       fillColor: AppColors.danger.withValues(alpha: 0.06),
@@ -1410,11 +1439,12 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
             Padding(
               padding: const EdgeInsets.only(bottom: 6),
               child: GestureDetector(
-                onTap: () => IngredientDetailSheet.show(
-                  context,
-                  ingredientId: c.serverIngredientId,
-                  fallbackName: c.nameKr,
-                ),
+                onTap: () => _openIngredientPage(context, ref, c.nameKr,
+                    fallback: () => IngredientDetailSheet.show(
+                          context,
+                          ingredientId: c.serverIngredientId,
+                          fallbackName: c.nameKr,
+                        )),
                 behavior: HitTestBehavior.opaque,
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1444,16 +1474,16 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
 /// 지금 쓰는 화장품 한 줄 — 펼치면 권장/주의 성분이 나온다.
 ///
 /// 제품명을 누르면 제품 상세로, 성분을 누르면 성분 근거(논문) 시트로.
-class _MatchToggle extends StatefulWidget {
+class _MatchToggle extends ConsumerStatefulWidget {
   const _MatchToggle({required this.match});
 
   final ProductMatch match;
 
   @override
-  State<_MatchToggle> createState() => _MatchToggleState();
+  ConsumerState<_MatchToggle> createState() => _MatchToggleState();
 }
 
-class _MatchToggleState extends State<_MatchToggle> {
+class _MatchToggleState extends ConsumerState<_MatchToggle> {
   bool _expanded = false;
 
   @override
@@ -1562,7 +1592,18 @@ class _MatchToggleState extends State<_MatchToggle> {
                 for (final id in ids)
                   if (kBstiIngredients[id] != null)
                     GestureDetector(
-                      onTap: () => _showEvidence(context, id),
+                      // 성분 상세로 통일 — 못 찾으면 기존 근거 시트.
+                      onTap: () async {
+                        final ing = await ref
+                            .read(ingredientRepositoryProvider)
+                            .findByExactName(kBstiIngredients[id]!.nameKo);
+                        if (!context.mounted) return;
+                        if (ing != null) {
+                          context.push('/shelf/ingredient', extra: ing);
+                        } else {
+                          _showEvidence(context, id);
+                        }
+                      },
                       child: Container(
                         padding: const EdgeInsets.symmetric(
                             horizontal: 8, vertical: 4),
