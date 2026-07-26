@@ -30,8 +30,8 @@ class IngredientDetailScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     // 이 성분을 포함하는 제품 (이 목록만 비동기 — 나머지는 바로 그린다).
     // 역조회 API 부재 — 추천 풀 + 내 화장대에서 프론트 도출 (기존 API 조합).
-    final productsAsync =
-        ref.watch(ingredientProductsProvider(ingredient.id));
+    final productsAsync = ref.watch(ingredientProductsProvider(
+        (id: ingredient.id, nameKo: ingredient.nameKor)));
     // 이 성분을 권장 성분으로 가진 BSTI 유형을 실제 데이터로 매칭.
     final type = ingredient.bstiIngredientId == null
         ? null
