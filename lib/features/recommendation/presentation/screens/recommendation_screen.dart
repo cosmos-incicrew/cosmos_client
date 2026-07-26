@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../core/widgets/screen_title.dart';
 import '../../../../app/theme/app_text_styles.dart';
+import '../../../../core/widgets/dots_loading.dart';
 import '../../../../core/widgets/pixel_box.dart';
 import '../../../product/data/models/product.dart';
 import '../../data/recommendation_provider.dart';
@@ -38,7 +39,8 @@ class RecommendationScreen extends ConsumerWidget {
       backgroundColor: AppColors.background,
       body: SafeArea(
         child: poolAsync.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
+          loading: () =>
+              const DotsLoading(caption: '추천 제품을 모으고 있어요'),
           error: (_, __) => _message('추천을 불러오지 못했어요'),
           data: (pool) => _body(context, ref, pool),
         ),
@@ -69,11 +71,6 @@ class RecommendationScreen extends ConsumerWidget {
           const SizedBox(height: 8),
           Row(
             children: [
-              const SizedBox(
-                  width: 12,
-                  height: 12,
-                  child: CircularProgressIndicator(strokeWidth: 2)),
-              const SizedBox(width: 8),
               Text('내 피부에 맞춰 정렬하는 중…',
                   style: AppTextStyles.caption
                       .copyWith(color: AppColors.textSecondary)),

@@ -64,11 +64,16 @@ class AppShell extends StatelessWidget {
         centerTitle: true,
         title: Padding(
           padding: const EdgeInsets.only(top: 6),
-          child: Image.asset(
-            AppAssets.logoWordmark,
-            height: 44,
-            errorBuilder: (_, __, ___) =>
-                Text('COSMOS', style: AppTextStyles.pointBoldEn(size: 22)),
+          // 로고를 누르면 홈으로 — 어디서든 돌아오는 표준 동선.
+          child: GestureDetector(
+            onTap: () => context.go('/home'),
+            behavior: HitTestBehavior.opaque,
+            child: Image.asset(
+              AppAssets.logoWordmark,
+              height: 44,
+              errorBuilder: (_, __, ___) =>
+                  Text('COSMOS', style: AppTextStyles.pointBoldEn(size: 22)),
+            ),
           ),
         ),
         actions: [

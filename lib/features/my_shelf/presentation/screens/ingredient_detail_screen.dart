@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_text_styles.dart';
 import '../../../../core/policy/display_policy.dart';
+import '../../../../core/widgets/dots_loading.dart';
 import '../../../../core/widgets/pixel_box.dart';
 import '../../../../core/widgets/section_label.dart';
 import '../../../bsti/bsti.dart';
@@ -106,7 +107,7 @@ class IngredientDetailScreen extends ConsumerWidget {
             loading: () => [
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: 12),
-                child: Center(child: CircularProgressIndicator()),
+                child: DotsLoading(dense: true),
               ),
             ],
             error: (_, __) => [
@@ -189,7 +190,7 @@ class IngredientDetailScreen extends ConsumerWidget {
     return async.when(
       loading: () => const Padding(
         padding: EdgeInsets.symmetric(vertical: 12),
-        child: Center(child: CircularProgressIndicator()),
+        child: DotsLoading(dense: true),
       ),
       error: (_, __) => Text('해설을 불러오지 못했어요. 잠시 후 다시 시도해주세요.',
           style:

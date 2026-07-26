@@ -49,7 +49,20 @@ class _SkinConcernScreenState extends ConsumerState<SkinConcernScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const SizedBox(height: 40),
+                const SizedBox(height: 12),
+                // 프로필 단계로 되돌아갈 수 있게 — 온보딩에도 뒤로가기.
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: IconButton(
+                    padding: EdgeInsets.zero,
+                    icon: const Icon(Icons.arrow_back,
+                        color: AppColors.textPrimary, size: 26),
+                    onPressed: () => context.canPop()
+                        ? context.pop()
+                        : context.go('/onboarding/profile'),
+                  ),
+                ),
+                const SizedBox(height: 2),
                 const Text('피부고민을 골라주세요',
                     style: AppTextStyles.headline),
                 const SizedBox(height: 8),

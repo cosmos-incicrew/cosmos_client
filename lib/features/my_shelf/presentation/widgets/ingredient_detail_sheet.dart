@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_text_styles.dart';
 import '../../../../core/policy/display_policy.dart';
+import '../../../../core/widgets/dots_loading.dart';
 import '../../../../core/widgets/pixel_box.dart';
 import '../../../../core/widgets/section_label.dart';
 import '../../../ingredient/data/ingredient_providers.dart';
@@ -62,7 +63,7 @@ class IngredientDetailSheet extends ConsumerWidget {
               name: fallbackName,
               child: const Padding(
                 padding: EdgeInsets.symmetric(vertical: 32),
-                child: Center(child: CircularProgressIndicator()),
+                child: DotsLoading(caption: '성분 해설을 만들고 있어요'),
               ),
             ),
             error: (_, __) => _frame(

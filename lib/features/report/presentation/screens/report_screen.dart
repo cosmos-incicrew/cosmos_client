@@ -9,6 +9,7 @@ import '../../../../app/theme/app_colors.dart';
 import '../../../../core/widgets/screen_title.dart';
 import '../../../../app/theme/app_text_styles.dart';
 import '../../../../core/policy/display_policy.dart';
+import '../../../../core/widgets/dots_loading.dart';
 import '../../../../core/widgets/pixel_box.dart';
 import '../../../../core/widgets/section_label.dart';
 import '../../../bsti/bsti.dart';
@@ -682,11 +683,8 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
                 const EdgeInsets.symmetric(horizontal: 16, vertical: 22),
             child: Column(
               children: [
-                const SizedBox(
-                    width: 22,
-                    height: 22,
-                    child: CircularProgressIndicator(strokeWidth: 2)),
-                const SizedBox(height: 12),
+                const DotsLoading(dense: true),
+                const SizedBox(height: 8),
                 Text('내 프로필로 맞춤 분석을 생성하고 있어요… (최대 1분)',
                     textAlign: TextAlign.center,
                     style: AppTextStyles.caption

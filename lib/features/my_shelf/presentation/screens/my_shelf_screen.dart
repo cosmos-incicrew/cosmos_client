@@ -30,7 +30,36 @@ class MyShelfScreen extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const ScreenTitle(title: '나의 화장대'),
+              ScreenTitle(
+                  title: '나의 화장대',
+                  onBack: () =>
+                      context.canPop() ? context.pop() : context.go('/home'),
+                  // 저장 — 자동 저장이 기본이지만, 사용자가 확신할 수 있게
+                  // 명시적 저장 버튼도 둔다 (누르면 즉시 기록 + 확인 안내).
+                  trailing: GestureDetector(
+                    onTap: () {
+                      ref.read(shelfPreferenceProvider.notifier).persist();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('화장대가 저장됐어요'),
+                          duration: Duration(seconds: 2),
+                        ),
+                      );
+                    },
+                    behavior: HitTestBehavior.opaque,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.save_outlined,
+                            size: 18, color: AppColors.primaryDark),
+                        const SizedBox(width: 4),
+                        Text('저장',
+                            style: AppTextStyles.body.copyWith(
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.primaryDark)),
+                      ],
+                    ),
+                  )),
               const SizedBox(height: 12),
               _addButton(context),
               const SizedBox(height: 24),

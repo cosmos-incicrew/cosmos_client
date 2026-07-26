@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_text_styles.dart';
 import '../../../../core/policy/display_policy.dart';
+import '../../../../core/widgets/dots_loading.dart';
 import '../../../../core/widgets/pixel_box.dart';
 import '../../../../core/widgets/screen_title.dart';
 import '../../../../core/widgets/section_label.dart';
@@ -37,7 +38,7 @@ class ReportCareScreen extends ConsumerWidget {
             recoAsync.when(
               loading: () => const Padding(
                 padding: EdgeInsets.symmetric(vertical: 60),
-                child: Center(child: CircularProgressIndicator()),
+                child: DotsLoading(caption: '관리법을 불러오고 있어요'),
               ),
               error: (_, __) => _notice('관리법을 불러오지 못했어요.\n잠시 후 다시 시도해주세요.'),
               data: (reco) => _body(reco),
