@@ -180,14 +180,11 @@ class HomeScreen extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
             Expanded(
-              // 새 비교 아이콘이 옆 버튼보다 살짝 높아 하단 단차를 맞춘다.
-              child: Transform.translate(
-                offset: const Offset(0, 6),
-                child: _ImageButton(
-                  asset: AppAssets.homeCompare,
-                  label: '같이 써도 될까? 성분 비교 추천',
-                  onTap: () => context.push('/compare'),
-                ),
+              // 두 이미지를 같은 크기(286x318)로 맞춰 하단이 자연 정렬된다.
+              child: _ImageButton(
+                asset: AppAssets.homeCompare,
+                label: '같이 써도 될까? 성분 비교 추천',
+                onTap: () => context.push('/compare'),
               ),
             ),
             const SizedBox(width: 28),
