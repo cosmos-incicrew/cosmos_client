@@ -30,7 +30,10 @@ class MyShelfScreen extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const ScreenTitle(title: '나의 화장대'),
+              ScreenTitle(
+                  title: '나의 화장대',
+                  onBack: () =>
+                      context.canPop() ? context.pop() : context.go('/home')),
               const SizedBox(height: 12),
               _addButton(context),
               const SizedBox(height: 24),

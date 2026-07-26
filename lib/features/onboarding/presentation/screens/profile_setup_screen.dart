@@ -96,7 +96,11 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
             : null,
         title: Padding(
           padding: const EdgeInsets.only(top: 12),
-          child: Image.asset(AppAssets.logoWordmark, height: 44),
+          child: GestureDetector(
+            // 온보딩 완료 전에는 라우터가 되돌리므로 완료자만 홈으로.
+            onTap: navigable ? () => context.go('/home') : null,
+            child: Image.asset(AppAssets.logoWordmark, height: 44),
+          ),
         ),
         centerTitle: true,
         actions: [
