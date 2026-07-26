@@ -14,7 +14,7 @@ import '../../../ingredient/data/models/ingredient.dart';
 import '../../../product/data/models/product.dart';
 import '../../../ingredient/data/ingredient_providers.dart';
 import '../../../ingredient/data/models/ingredient_insight.dart';
-import '../../../product/data/product_providers.dart';
+import '../../data/ingredient_products_provider.dart';
 import '../../../../core/widgets/screen_title.dart';
 
 /// 성분 상세 화면 (검색 결과에서 성분 진입).
@@ -29,8 +29,9 @@ class IngredientDetailScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     // 이 성분을 포함하는 제품 (이 목록만 비동기 — 나머지는 바로 그린다).
-    final productsAsync =
-        ref.watch(productsByIngredientProvider(ingredient.id));
+    // 역조회 API 부재 — 추천 풀 + 내 화장대에서 프론트 도출 (기존 API 조합).
+    final productsAsync = ref.watch(ingredientProductsProvider(
+        (id: ingredient.id, nameKo: ingredient.nameKor)));
     // 이 성분을 권장 성분으로 가진 BSTI 유형을 실제 데이터로 매칭.
     final type = ingredient.bstiIngredientId == null
         ? null
@@ -53,30 +54,35 @@ class IngredientDetailScreen extends ConsumerWidget {
               style: AppTextStyles.caption
                   .copyWith(color: AppColors.textSecondary)),
           const SizedBox(height: 8),
+          // 긴 성분명(영문 병기)이 화면을 넘지 않게 줄바꿈 허용.
           Text(
             ingredient.nameKor != null
-                ? '${ingredient.nameKor} (${ingredient.nameEng})'
+                ? (ingredient.nameEng.isEmpty
+                    ? ingredient.nameKor!
+                    : '${ingredient.nameKor} (${ingredient.nameEng})')
                 : ingredient.nameEng,
-            maxLines: 1,
-            overflow: TextOverflow.visible,
-            softWrap: false,
-            style: AppTextStyles.title.copyWith(fontSize: 22),
+            style: AppTextStyles.title.copyWith(fontSize: 22, height: 1.3),
           ),
           const SizedBox(height: 16),
 
-          // 역할·특징 요약(박스).
-          PixelBox(
-            borderColor: AppColors.primary,
-            fillColor: AppColors.primaryLight.withValues(alpha: 0.35),
-            pixel: 6,
-            borderWidth: 2.5,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
-            child: Text(
-              ingredient.efficacy ?? '성분 정보가 준비 중이에요.',
-              style: AppTextStyles.body.copyWith(height: 1.5),
+          // 역할·특징 요약(박스) — 데이터가 있을 때만.
+          // 없으면 "준비 중" 대신 아무것도 안 띄운다: 바로 아래 성분 해설
+          // (성분 역할·주의사항)이 실제 성분 정보이기 때문이다.
+          if (ingredient.efficacy != null) ...[
+            PixelBox(
+              borderColor: AppColors.primary,
+              fillColor: AppColors.primaryLight.withValues(alpha: 0.35),
+              pixel: 6,
+              borderWidth: 2.5,
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+              child: Text(
+                ingredient.efficacy!,
+                style: AppTextStyles.body.copyWith(height: 1.5),
+              ),
             ),
-          ),
-          const SizedBox(height: 28),
+            const SizedBox(height: 28),
+          ],
 
           // 성분 해설 (① GET /ingredients/{id}/detail).
           const SectionLabel('성분 해설'),
@@ -117,8 +123,7 @@ class IngredientDetailScreen extends ConsumerWidget {
             ],
             data: (products) => products.isEmpty
                 ? [
-                    // TODO(BE): 성분→제품 역조회 API 가 아직 없어 항상 빈 결과다.
-                    Text('성분으로 제품을 찾는 기능은 준비 중이에요.',
+                    Text('이 성분이 든 제품을 아직 찾지 못했어요.',
                         style: AppTextStyles.caption
                             .copyWith(color: AppColors.textSecondary)),
                   ]
@@ -144,24 +149,7 @@ class IngredientDetailScreen extends ConsumerWidget {
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           child: Row(
             children: [
-              // 제품 이미지 (없으면 플레이스홀더).
-              Container(
-                width: 44,
-                height: 44,
-                color: AppColors.primaryLight.withValues(alpha: 0.35),
-                alignment: Alignment.center,
-                clipBehavior: Clip.antiAlias,
-                child: p.imageAsset != null
-                    ? Image.asset(p.imageAsset!,
-                        fit: BoxFit.contain,
-                        errorBuilder: (_, __, ___) => const Icon(
-                            Icons.image_outlined,
-                            size: 22,
-                            color: AppColors.outline))
-                    : const Icon(Icons.image_outlined,
-                        size: 22, color: AppColors.outline),
-              ),
-              const SizedBox(width: 12),
+              // 서버 제품엔 이미지가 없다 — 빈 회색 박스 대신 텍스트만.
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
