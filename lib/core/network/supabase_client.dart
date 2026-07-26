@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../config/env.dart';
@@ -17,11 +18,30 @@ class SupabaseService {
       print('[SupabaseService] SUPABASE_URL/PUBLISHABLE_KEY 미설정 — 초기화 스킵');
       return;
     }
+    // OAuth 복귀 신호는 initialize 가 URL 을 정리하기 전에 잡아둔다.
+    final oauthReturn = kIsWeb &&
+        (Uri.base.queryParameters.containsKey('code') ||
+            Uri.base.fragment.contains('access_token'));
+
     await Supabase.initialize(
       url: Env.supabaseUrl,
       // ignore: deprecated_member_use
       anonKey: Env.supabaseKey,
     );
+
+    // 웹 OAuth 복귀면 세션 교환이 끝날 때까지 기다렸다 앱을 띄운다.
+    // 안 기다리면 앱이 미로그인으로 먼저 떠 스플래시(START)에 앉았다가, 세션이
+    // 뒤늦게 도착해 온보딩을 거쳐 프로필로 튕기는 깜빡임이 생긴다. 세션이 잡히거나
+    // 짧은 타임아웃까지 기다린 뒤 진행한다(실패하면 미로그인으로 정상 진행).
+    if (oauthReturn && auth.currentSession == null) {
+      try {
+        await auth.onAuthStateChange
+            .firstWhere((event) => event.session != null)
+            .timeout(const Duration(seconds: 6));
+      } on Object {
+        // 타임아웃·실패 — 라우터가 스플래시로 보낸다.
+      }
+    }
   }
 
   /// 초기화된 Supabase 클라이언트.

@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../app/theme/app_assets.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_text_styles.dart';
 import '../../../../core/widgets/pixel_box.dart';
+import '../../../recommendation/data/recommendation_provider.dart';
 
 /// 홈 화면 — 기능 허브. (피그마 가안 레이아웃)
 ///
@@ -12,11 +14,15 @@ import '../../../../core/widgets/pixel_box.dart';
 /// 검색바: "제품·성분" 라벨 + 알약형 입력창
 /// 섹션: ① 내 화장대 점수 배너(이미지 전체가 버튼 → BSTI)
 ///        ② 2×2 메뉴 (피부타입 검사·맞춤 제품추천 / 내 화장대·베스트 궁합추천)
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // 맞춤 추천 데이터를 홈에서 미리 계산 시작 — 추천 페이지에 들어갈 때쯤엔
+    // 끝나 있어 즉시 뜬다 (listen 은 홈을 리빌드하지 않는다).
+    ref.listen(recommendationHitsProvider, (_, __) {});
+
     // 헤더(로고)·서랍·푸터는 쉘(AppShell)이 고정으로 가진다.
     return Scaffold(
       // 한 화면에 들어오게 배치하되, 작은 화면에선 안전하게 스크롤.

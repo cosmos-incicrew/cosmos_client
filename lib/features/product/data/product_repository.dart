@@ -42,18 +42,31 @@ class ProductRepository {
   /// ⚠️ 검색 응답에는 ingredient_ids 가 없다 — 필요하면
   /// [getIngredientIds] 로 따로 받는다 (백엔드가 2단계로 설계함).
   Future<List<Product>> search(String query) async {
-    if (!Env.hasApi || query.isEmpty) return const [];
+    // 서버가 2글자 미만 검색어를 422 로 거부한다 — 한글 조합 중간 상태
+    // ("크림"의 "크")가 디바운스에 걸려 나가면 에러 화면이 뜨므로 보내지 않는다.
+    if (!Env.hasApi || query.trim().length < 2) return const [];
 
-    final res = await _retryOnce(() => _dio.get<Map<String, dynamic>>(
-          '/api/v1/products/search',
-          queryParameters: {'q': query},
-        ));
+    final Response<Map<String, dynamic>> res;
+    try {
+      res = await _retryOnce(() => _dio.get<Map<String, dynamic>>(
+            '/api/v1/products/search',
+            queryParameters: {'q': query},
+          ));
+    } on DioException catch (e) {
+      // 422 = 검색어 형식 거부 — 오류가 아니라 "해당 없음"으로 취급.
+      if (e.response?.statusCode == 422) return const [];
+      rethrow;
+    }
     final results = (res.data?['results'] as List?) ?? const [];
     return [
       for (final raw in results.cast<Map<String, dynamic>>())
         Product(
           id: raw['id'] as int,
-          name: raw['product_name'] as String,
+          // 서버 검색 응답이 cleaned_product_name 으로 바뀜 (다른 API 는
+          // 여전히 product_name) — 양쪽 다 받아 서버 변화에 안 깨지게.
+          name: (raw['cleaned_product_name'] ??
+              raw['product_name'] ??
+              '') as String,
           brand: raw['brand'] as String?,
           mainCategory: raw['main_category'] as String?,
           subCategory: raw['sub_category'] as String?,

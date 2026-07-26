@@ -48,12 +48,19 @@ class IngredientRepository {
   /// 응답: {"query": "...", "results": [
   ///        {"ingredient_id", "name_kr", "name_en"}]}
   Future<List<Ingredient>> search(String query) async {
-    if (!Env.hasApi || query.isEmpty) return const [];
+    // 2글자 미만은 서버가 422 로 거부 — 한글 조합 중간 상태는 보내지 않는다.
+    if (!Env.hasApi || query.trim().length < 2) return const [];
 
-    final res = await _dio.get<Map<String, dynamic>>(
-      '/api/v1/ingredients/search',
-      queryParameters: {'q': query},
-    );
+    final Response<Map<String, dynamic>> res;
+    try {
+      res = await _dio.get<Map<String, dynamic>>(
+        '/api/v1/ingredients/search',
+        queryParameters: {'q': query},
+      );
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 422) return const [];
+      rethrow;
+    }
     final results = (res.data?['results'] as List?) ?? const [];
     return [
       for (final raw in results.cast<Map<String, dynamic>>())
@@ -186,25 +193,32 @@ class IngredientRepository {
     final index = await _buildBstiIndex();
     if (index.isEmpty) return const {};
 
-    final out = <int, List<String>>{};
-    for (final pid in productIds) {
-      List<int> serverIds;
-      try {
-        final res = await _dio.get<Map<String, dynamic>>(
-          '/api/v1/products/$pid/ingredients',
-        );
-        serverIds =
-            ((res.data?['ingredient_ids'] as List?) ?? const []).cast<int>();
-      } on DioException {
-        // 404(없는 제품)·422(분석 불가) 등 — 이 제품만 건너뛴다.
-        continue;
-      }
-      out[pid] = [
-        for (final id in serverIds)
-          if (index[id] != null) index[id]!,
-      ];
-    }
-    return out;
+    // 제품별 성분 조회를 병렬로 — 순차(await in loop)면 제품 40개에
+    // 1분 넘게 걸려 추천 화면이 로딩에 갇힌다. 실패한 제품만 건너뛴다.
+    final entries = await Future.wait([
+      for (final pid in productIds)
+        () async {
+          try {
+            final res = await _dio.get<Map<String, dynamic>>(
+              '/api/v1/products/$pid/ingredients',
+            );
+            final serverIds =
+                ((res.data?['ingredient_ids'] as List?) ?? const [])
+                    .cast<int>();
+            return MapEntry(pid, [
+              for (final id in serverIds)
+                if (index[id] != null) index[id]!,
+            ]);
+          } on DioException {
+            // 404(없는 제품)·422(분석 불가) 등 — 이 제품만 건너뛴다.
+            return null;
+          }
+        }(),
+    ]);
+    return {
+      for (final e in entries)
+        if (e != null) e.key: e.value,
+    };
   }
 
   /// BSTI 사전 34개를 서버에서 찾아 `서버 성분 id → BSTI id` 인덱스를 만든다.
