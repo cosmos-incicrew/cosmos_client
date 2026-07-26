@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_text_styles.dart';
 import '../../../../core/policy/display_policy.dart';
+import '../../../../core/widgets/dots_loading.dart';
 import '../../../../core/widgets/pixel_box.dart';
 import '../../../../core/widgets/screen_title.dart';
 import '../../../../core/widgets/section_label.dart';
@@ -536,7 +537,7 @@ class _ProductCompareScreenState extends ConsumerState<ProductCompareScreen> {
       child: async.when(
         loading: () => const Padding(
           padding: EdgeInsets.symmetric(vertical: 12),
-          child: Center(child: CircularProgressIndicator()),
+          child: DotsLoading(dense: true),
         ),
         error: (_, __) => Text('검색에 실패했어요',
             style:

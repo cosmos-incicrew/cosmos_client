@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../app/theme/app_assets.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_text_styles.dart';
+import '../../../../core/widgets/dots_loading.dart';
 import '../../../../core/widgets/pixel_box.dart';
 import '../../../../core/widgets/screen_title.dart';
 import '../../../ingredient/data/ingredient_providers.dart';
@@ -165,7 +166,7 @@ class _ShelfAddScreenState extends ConsumerState<ShelfAddScreen> {
     }
     // 둘 다 와야 결과를 그린다 — 섹션이 따로 깜빡이지 않게.
     if (productsAsync.isLoading || ingredientsAsync.isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return const DotsLoading(caption: '검색하고 있어요');
     }
 
     final products = productsAsync.value ?? const <Product>[];

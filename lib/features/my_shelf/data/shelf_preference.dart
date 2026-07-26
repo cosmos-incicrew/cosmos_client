@@ -1,4 +1,8 @@
+import 'dart:convert';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../../core/storage/local_storage.dart';
 
 /// 선호 / 기피 구분.
 enum PreferenceKind {
@@ -36,23 +40,66 @@ class ShelfEntry {
 
   @override
   int get hashCode => Object.hash(key, kind);
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'name': name,
+        'isProduct': isProduct,
+        'kind': kind.name,
+      };
+
+  factory ShelfEntry.fromJson(Map<String, dynamic> json) => ShelfEntry(
+        id: json['id'] as int,
+        name: json['name'] as String,
+        isProduct: json['isProduct'] as bool,
+        kind: PreferenceKind.values.firstWhere(
+          (k) => k.name == json['kind'],
+          orElse: () => PreferenceKind.like,
+        ),
+      );
 }
 
 /// 내 화장대 — 선호·기피 목록.
 ///
-/// ⚠️ 지금은 메모리에만 저장한다 (앱 끄면 사라짐).
-/// 백엔드가 붙으면 이 Notifier 안을 API 호출로 바꾸면 된다.
+/// 로컬(Hive)에 자동 저장된다 — 담거나 빼면 즉시 기록되고, 앱을 다시 켜면
+/// 그대로 복원된다. (서버 화장대 API 가 생기면 여기서 동기화로 확장)
 class ShelfPreferenceNotifier extends StateNotifier<List<ShelfEntry>> {
-  ShelfPreferenceNotifier() : super(const []);
+  ShelfPreferenceNotifier() : super(_restore());
+
+  static const _storageKey = 'shelf_entries';
+
+  /// 저장된 화장대 복원. 저장소가 없거나(테스트) 형식이 깨지면 빈 목록.
+  static List<ShelfEntry> _restore() {
+    try {
+      final raw = LocalStorage.prefs.get(_storageKey) as String?;
+      if (raw == null) return const [];
+      return [
+        for (final item in jsonDecode(raw) as List)
+          ShelfEntry.fromJson(item as Map<String, dynamic>),
+      ];
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  /// 현재 화장대를 로컬에 기록. (실패해도 화면 동작은 막지 않는다)
+  void persist() {
+    try {
+      LocalStorage.prefs.put(
+          _storageKey, jsonEncode([for (final e in state) e.toJson()]));
+    } catch (_) {}
+  }
 
   /// 담기. 같은 항목이 이미 있으면 선호↔기피만 갱신한다.
   void add(ShelfEntry entry) {
     final rest = state.where((e) => e.key != entry.key).toList();
     state = [...rest, entry];
+    persist();
   }
 
   void remove(ShelfEntry entry) {
     state = state.where((e) => e.key != entry.key).toList();
+    persist();
   }
 
   /// 이미 담긴 항목이면 그 구분을, 아니면 null.

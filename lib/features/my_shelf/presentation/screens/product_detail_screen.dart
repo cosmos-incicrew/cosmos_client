@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -8,6 +6,7 @@ import '../../../../app/theme/app_colors.dart';
 import '../../../../core/policy/display_policy.dart';
 import '../../../../core/widgets/section_label.dart';
 import '../../../../app/theme/app_text_styles.dart';
+import '../../../../core/widgets/dots_loading.dart';
 import '../../../../core/widgets/pixel_box.dart';
 import '../../../../core/widgets/screen_title.dart';
 import '../../../bsti/bsti.dart';
@@ -47,7 +46,7 @@ class ProductDetailScreen extends ConsumerWidget {
             ),
             Expanded(
               child: idsAsync.when(
-                loading: () => const _DotsLoading(),
+                loading: () => const DotsLoading(caption: '성분 이름과 해설까지 준비하고 있어요'),
                 error: (_, __) =>
                     _message('제품 정보를 불러오지 못했어요.\n잠시 후 다시 시도해주세요.'),
                 data: (ids) => _gate(context, ref, ids),
@@ -72,7 +71,7 @@ class ProductDetailScreen extends ConsumerWidget {
       for (final id in top10)
         ref.watch(ingredientDetailProvider(id)).isLoading,
     ];
-    if (loading.any((l) => l)) return const _DotsLoading();
+    if (loading.any((l) => l)) return const DotsLoading(caption: '성분 이름과 해설까지 준비하고 있어요');
     return _body(context, ref, ids);
   }
 
@@ -123,14 +122,9 @@ class ProductDetailScreen extends ConsumerWidget {
         // 요약 (② — LLM. 실패는 이 칸만).
         summaryAsync.when(
           loading: () => _summaryShell(
-            const Center(
-              child: Padding(
-                padding: EdgeInsets.symmetric(vertical: 6),
-                child: SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2)),
-              ),
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 6),
+              child: DotsLoading(dense: true),
             ),
           ),
           error: (_, __) => _summaryShell(Text(
@@ -386,11 +380,7 @@ class _IngredientToggleState extends ConsumerState<_IngredientToggle> {
               detail.when(
                 loading: () => const Padding(
                   padding: EdgeInsets.symmetric(vertical: 8),
-                  child: Center(
-                      child: SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2))),
+                  child: DotsLoading(dense: true),
                 ),
                 error: (_, __) => Text('해설을 불러오지 못했어요. 잠시 후 다시 시도해주세요.',
                     style: AppTextStyles.caption
@@ -454,54 +444,6 @@ class _IngredientToggleState extends ConsumerState<_IngredientToggle> {
             ),
         ],
       ],
-    );
-  }
-}
-
-/// "로딩중…" — 점이 하나씩 늘어나는 로딩 표시.
-///
-/// 제품 상세는 이름·요약·성분 해설까지 병렬로 당겨온 뒤 한 번에 뜨므로,
-/// 그동안 사용자에게 진행 중임을 점 애니메이션으로 보여준다.
-class _DotsLoading extends StatefulWidget {
-  const _DotsLoading();
-
-  @override
-  State<_DotsLoading> createState() => _DotsLoadingState();
-}
-
-class _DotsLoadingState extends State<_DotsLoading> {
-  int _dots = 1;
-  Timer? _timer;
-
-  @override
-  void initState() {
-    super.initState();
-    _timer = Timer.periodic(const Duration(milliseconds: 400), (_) {
-      if (mounted) setState(() => _dots = _dots % 3 + 1);
-    });
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text('로딩중${'.' * _dots}',
-              style: AppTextStyles.pointSm(color: AppColors.textPrimary)
-                  .copyWith(fontSize: 18)),
-          const SizedBox(height: 8),
-          Text('성분 이름과 해설까지 준비하고 있어요',
-              style: AppTextStyles.caption
-                  .copyWith(color: AppColors.textSecondary)),
-        ],
-      ),
     );
   }
 }

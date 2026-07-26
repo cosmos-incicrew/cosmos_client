@@ -123,6 +123,19 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
               child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // 수정 모드는 쉘 헤더에 뒤로가기가 없다 — 자체 뒤로가기 제공.
+              if (widget.isEditing)
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: IconButton(
+                    padding: EdgeInsets.zero,
+                    icon: const Icon(Icons.arrow_back,
+                        color: AppColors.textPrimary, size: 26),
+                    onPressed: () => context.canPop()
+                        ? context.pop()
+                        : context.go('/profile'),
+                  ),
+                ),
               // 화면 제목 — 목업의 "My Profile".
               Center(
                 child: Text('My Profile',
