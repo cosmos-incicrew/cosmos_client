@@ -149,24 +149,7 @@ class IngredientDetailScreen extends ConsumerWidget {
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           child: Row(
             children: [
-              // 제품 이미지 (없으면 플레이스홀더).
-              Container(
-                width: 44,
-                height: 44,
-                color: AppColors.primaryLight.withValues(alpha: 0.35),
-                alignment: Alignment.center,
-                clipBehavior: Clip.antiAlias,
-                child: p.imageAsset != null
-                    ? Image.asset(p.imageAsset!,
-                        fit: BoxFit.contain,
-                        errorBuilder: (_, __, ___) => const Icon(
-                            Icons.image_outlined,
-                            size: 22,
-                            color: AppColors.outline))
-                    : const Icon(Icons.image_outlined,
-                        size: 22, color: AppColors.outline),
-              ),
-              const SizedBox(width: 12),
+              // 서버 제품엔 이미지가 없다 — 빈 회색 박스 대신 텍스트만.
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
